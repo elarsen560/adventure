@@ -18,17 +18,32 @@ VERB_ALIASES = {
     "read": "examine",
     "search": "examine",
     "study": "examine",
+    "check": "examine",
+    "view": "examine",
+    "searchroom": "look",
     "move": "go",
     "walk": "go",
     "travel": "go",
+    "head": "go",
+    "climb": "go",
     "get": "take",
     "pick": "take",
     "pickup": "take",
     "grab": "take",
+    "collect": "take",
     "put": "drop",
+    "leave": "drop",
     "apply": "use",
     "insert": "use",
     "turn": "use",
+    "operate": "use",
+    "activate": "use",
+    "speak": "talk",
+    "chat": "talk",
+    "pry": "open",
+    "unseal": "open",
+    "unbolt": "unlock",
+    "unchain": "unlock",
     "inv": "inventory",
     "i": "inventory",
     "m": "map",
@@ -51,6 +66,8 @@ def _normalize(text: str) -> list[str]:
     parts = [part for part in text.split() if part]
     if parts[:2] == ["pick", "up"]:
         parts = ["take", *parts[2:]]
+    if parts[:2] == ["search", "room"]:
+        parts = ["look"]
     return parts
 
 

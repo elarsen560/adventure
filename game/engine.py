@@ -10,7 +10,7 @@ from game.ambient import select_ambient_line, should_emit_ambient
 from game.map import render_map, room_lookup
 from game.parser import Command, parse_command
 from game.persistence import load_game, save_game
-from game.state import GameState, current_room_items, find_item_id, find_npc_id, reveal_hidden_item, visible_npcs
+from game.state import GameState, best_match, current_room_items, extracted_keywords, find_item_id, find_npc_id, phrase_variants, reveal_hidden_item, visible_npcs
 
 
 FEATURE_ALIASES = {
@@ -120,6 +120,33 @@ FEATURE_ALIASES = {
         "tray": "tea service",
         "service": "tea service",
         "journals": "notebooks",
+    },
+}
+
+ROOM_DESCRIPTION_REFERENTS = {
+    "cliff_path": {
+        "glint": "observatory",
+        "edge": "observatory",
+        "path edge": "observatory",
+        "metallic glint": "observatory",
+        "metal": "observatory",
+    },
+    "front_gate": {
+        "ironwork": "gate",
+        "bar": "gate",
+        "bars": "gate",
+        "hinge": "gate",
+    },
+    "courtyard": {
+        "metallic": "fountain",
+        "center": "fountain",
+    },
+    "generator_room": {
+        "machine": "generator",
+    },
+    "keepers_quarters": {
+        "glimmer": "tea service",
+        "comforts": "tea service",
     },
 }
 
@@ -242,9 +269,36 @@ class Game:
 
     def resolve_feature(self, target: str) -> str | None:
         room = ROOMS[self.state.current_room]
-        if target in room.features:
-            return target
-        return FEATURE_ALIASES.get(self.state.current_room, {}).get(target)
+        option_map: dict[str, str] = {}
+        for feature_name, feature_text in room.features.items():
+            for variant in phrase_variants(feature_name):
+                option_map[variant] = feature_name
+            for keyword in extracted_keywords(feature_name, feature_text):
+                option_map.setdefault(keyword, feature_name)
+        for alias, feature_name in FEATURE_ALIASES.get(self.state.current_room, {}).items():
+            for variant in phrase_variants(alias):
+                option_map[variant] = feature_name
+        for alias, feature_name in ROOM_DESCRIPTION_REFERENTS.get(self.state.current_room, {}).items():
+            for variant in phrase_variants(alias):
+                option_map[variant] = feature_name
+        return best_match(target, option_map)
+
+    def room_target_hints(self) -> str:
+        room = ROOMS[self.state.current_room]
+        names = list(room.features)
+        names.extend(ITEMS[item_id].name for item_id in current_room_items(self.state))
+        npcs = visible_npcs(self.state, self.state.current_room)
+        names.extend(NPCS[npc_id].name for npc_id in npcs)
+        if not names:
+            return "There is nothing obvious to focus on."
+        return "You might try " + ", ".join(names[:4]) + "."
+
+    def single_feature_choice(self, *, allow_hidden_gate: bool = False) -> str | None:
+        room = ROOMS[self.state.current_room]
+        choices = list(room.features)
+        if allow_hidden_gate and self.state.current_room == "front_gate":
+            return "gate"
+        return choices[0] if len(choices) == 1 else None
 
     def unknown_target_hint(self) -> str:
         room_id = self.state.current_room
@@ -343,7 +397,7 @@ class Game:
                 return "The painting has swung aside to reveal the hidden keeper's quarters."
             return "Behind the frame, the wall sounds hollow."
 
-        return "You see nothing special."
+        return "You see nothing special. " + self.room_target_hints()
 
     def examine_feature(self, target: str) -> str:
         room_id = self.state.current_room
@@ -413,7 +467,8 @@ class Game:
 
     def do_go(self, command: Command) -> str:
         if not command.target:
-            return "Go where?"
+            exits = ", ".join(ROOMS[self.state.current_room].exits)
+            return f"Go where? Exits are {exits}."
         room = ROOMS[self.state.current_room]
         direction = command.target
         if direction not in room.exits:
@@ -444,16 +499,34 @@ class Game:
 
     def do_take(self, command: Command) -> str:
         if not command.target:
+            room_items = current_room_items(self.state)
+            if len(room_items) == 1:
+                item_id = room_items[0]
+                self.state.room_items[self.state.current_room].remove(item_id)
+                self.state.inventory.append(item_id)
+                return f"You take the {ITEMS[item_id].name}."
             return "Take what?"
         item_id = find_item_id(command.target, current_room_items(self.state))
         if not item_id:
-            return "You can't take that."
+            room_items = current_room_items(self.state)
+            if len(room_items) == 1 and command.target in {"it", "thing", "object"}:
+                item_id = room_items[0]
+                self.state.room_items[self.state.current_room].remove(item_id)
+                self.state.inventory.append(item_id)
+                return f"You take the {ITEMS[item_id].name}."
+            names = ", ".join(ITEMS[item_id].name for item_id in room_items) if room_items else "nothing portable"
+            return f"You can't take that. Here you can take {names}."
         self.state.room_items[self.state.current_room].remove(item_id)
         self.state.inventory.append(item_id)
         return f"You take the {ITEMS[item_id].name}."
 
     def do_drop(self, command: Command) -> str:
         if not command.target:
+            if len(self.state.inventory) == 1:
+                item_id = self.state.inventory[0]
+                self.state.inventory.remove(item_id)
+                self.state.room_items.setdefault(self.state.current_room, []).append(item_id)
+                return f"You set down the {ITEMS[item_id].name}."
             return "Drop what?"
         item_id = find_item_id(command.target, self.state.inventory)
         if not item_id:
@@ -469,9 +542,14 @@ class Game:
                 return "You aren't carrying that."
             return self.use_item(tool_id, None)
         if not command.tool:
+            if len(self.state.inventory) == 1:
+                return self.use_item(self.state.inventory[0], None)
             return "Use what?"
         tool_id = find_item_id(command.tool, self.state.inventory)
         if not tool_id:
+            if len(self.state.inventory) == 1:
+                tool_id = self.state.inventory[0]
+                return self.use_item(tool_id, command.target)
             return "You aren't carrying that."
         return self.use_item(tool_id, command.target)
 
@@ -522,7 +600,11 @@ class Game:
 
     def do_open(self, command: Command) -> str:
         if not command.target:
-            return "Open what?"
+            target = self.single_feature_choice(allow_hidden_gate=True)
+            if target:
+                command = Command(command.action, target=target, raw=command.raw)
+            else:
+                return "Open what?"
         if self.state.current_room == "west_hall" and command.target in {"painting", "moon painting"}:
             if self.state.flags["secret_door_open"] or self.state.flags["wren_awake"]:
                 if not self.state.flags["secret_door_open"]:
@@ -535,18 +617,21 @@ class Game:
             if self.state.flags["front_gate_unlocked"]:
                 return "The gate stands ready. You can go east into the courtyard."
             return "The chain and lock still hold it shut."
-        return "It won't open."
+        return "It won't open. " + self.room_target_hints()
 
     def do_unlock(self, command: Command) -> str:
         if not command.target:
-            return "Unlock what?"
+            if self.state.current_room == "front_gate":
+                command = Command(command.action, target="gate", raw=command.raw)
+            else:
+                return "Unlock what?"
         if command.target in {"gate", "front gate"}:
             if "groundskeeper_key" not in self.state.inventory:
                 return "You need the groundskeeper key."
             return self.use_item("groundskeeper_key", "gate")
         if command.target in {"archive", "archive door", "door"} and self.state.current_room == "east_hall":
             return "The archive lock wants a four-word sequence. Use 'enter <code>'."
-        return "You can't unlock that."
+        return "You can't unlock that. " + self.room_target_hints()
 
     def do_enter(self, command: Command) -> str:
         if self.state.current_room != "east_hall":

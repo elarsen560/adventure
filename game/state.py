@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 from dataclasses import dataclass, field
 
 from game.content import ITEMS, NPCS, ROOMS, build_variation
@@ -11,15 +12,96 @@ KEY_DISCOVERY_RULES = {
     "sea_cave": ("examine offerings", "examine wall"),
 }
 
+STOPWORDS = {
+    "the",
+    "and",
+    "with",
+    "from",
+    "that",
+    "this",
+    "into",
+    "onto",
+    "near",
+    "over",
+    "under",
+    "your",
+    "their",
+    "them",
+    "when",
+    "where",
+    "have",
+    "been",
+    "once",
+    "only",
+    "just",
+    "still",
+    "looks",
+    "look",
+    "room",
+    "stone",
+    "metal",
+}
+
 
 def canonical(text: str) -> str:
     return " ".join(text.lower().split())
 
 
+def _singularize(token: str) -> str:
+    if token.endswith("ies") and len(token) > 4:
+        return token[:-3] + "y"
+    if token.endswith("s") and not token.endswith("ss") and len(token) > 3:
+        return token[:-1]
+    return token
+
+
+def phrase_variants(text: str) -> set[str]:
+    normalized = canonical(text)
+    tokens = normalized.split()
+    variants = {normalized}
+    singular_tokens = [_singularize(token) for token in tokens]
+    variants.add(" ".join(singular_tokens))
+    variants.add(" ".join(token.replace("-", " ") for token in tokens))
+    variants = {variant.strip() for variant in variants if variant.strip()}
+    return variants
+
+
 def match_alias(name: str, aliases: tuple[str, ...], query: str) -> bool:
-    query = canonical(query)
-    names = {canonical(name), *(canonical(alias) for alias in aliases)}
-    return query in names
+    query_variants = phrase_variants(query)
+    names = set()
+    for value in (name, *aliases):
+        names.update(phrase_variants(value))
+    if query_variants & names:
+        return True
+    query_text = canonical(query)
+    return any(query_text in name_variant or name_variant in query_text for name_variant in names if len(name_variant) >= 4)
+
+
+def best_match(query: str, options: dict[str, str]) -> str | None:
+    normalized = canonical(query)
+    if not normalized:
+        return None
+    for variant in phrase_variants(normalized):
+        if variant in options:
+            return options[variant]
+    contains = [target for alias, target in options.items() if normalized in alias or alias in normalized]
+    if len(set(contains)) == 1:
+        return contains[0]
+    close = difflib.get_close_matches(normalized, list(options), n=1, cutoff=0.74)
+    if close:
+        return options[close[0]]
+    return None
+
+
+def extracted_keywords(*texts: str) -> set[str]:
+    words = set()
+    for text in texts:
+        for raw in text.lower().replace("-", " ").split():
+            token = "".join(char for char in raw if char.isalpha())
+            token = _singularize(token)
+            if len(token) >= 4 and token not in STOPWORDS:
+                words.add(token)
+    return words
 
 
 @dataclass
@@ -143,19 +225,27 @@ def build_clue_texts(variation: dict) -> dict[str, str]:
 
 
 def find_item_id(query: str, item_ids: list[str]) -> str | None:
+    option_map: dict[str, str] = {}
     for item_id in item_ids:
         item = ITEMS[item_id]
-        if match_alias(item.name, item.aliases, query):
-            return item_id
-    return None
+        for value in (item.name, *item.aliases):
+            for variant in phrase_variants(value):
+                option_map[variant] = item_id
+        for keyword in extracted_keywords(item.name, item.description, *item.aliases):
+            option_map.setdefault(keyword, item_id)
+    return best_match(query, option_map)
 
 
 def find_npc_id(query: str, npc_ids: list[str]) -> str | None:
+    option_map: dict[str, str] = {}
     for npc_id in npc_ids:
         npc = NPCS[npc_id]
-        if match_alias(npc.name, npc.aliases, query):
-            return npc_id
-    return None
+        for value in (npc.name, *npc.aliases):
+            for variant in phrase_variants(value):
+                option_map[variant] = npc_id
+        for keyword in extracted_keywords(npc.name, npc.description, *npc.aliases):
+            option_map.setdefault(keyword, npc_id)
+    return best_match(query, option_map)
 
 
 def visible_npcs(state: GameState, room_id: str) -> list[str]:

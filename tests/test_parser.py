@@ -75,3 +75,9 @@ def test_goto_parses_room_target():
 def test_full_map_parses_as_debug_command():
     command = parse_command("full map")
     assert command.action == "full_map"
+
+
+def test_unchain_alias_maps_to_unlock():
+    command = parse_command("unchain gate")
+    assert command.action == "unlock"
+    assert command.target == "gate"

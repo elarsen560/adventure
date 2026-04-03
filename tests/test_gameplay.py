@@ -107,7 +107,7 @@ def test_lever_hint_nudges_special_syntax():
 def test_take_error_suggests_look():
     game = Game(seed=4517)
     text = game.process("take token")
-    assert text == "You can't take that."
+    assert text.startswith("You can't take that.")
 
 
 def test_map_shows_current_room_and_adjacent_unknowns():
@@ -257,3 +257,26 @@ def test_goto_accepts_friendly_room_name():
     game = Game(seed=4517, debug=True)
     game.process("goto Orrery Dome")
     assert game.state.current_room == "orrery_dome"
+
+
+def test_room_description_noun_can_resolve_hidden_key_object():
+    game = Game(seed=7308)
+    text = game.process("examine glint")
+    assert "groundskeeper key" in text
+    assert game.process("take key").startswith("You take the groundskeeper key.")
+
+
+def test_fuzzy_item_matching_handles_split_word():
+    game = Game(seed=4517)
+    game.state.current_room = "courtyard"
+    game.state.discovered_rooms.add("courtyard")
+    assert game.process("take hand wheel").startswith("You take the brass handwheel.")
+
+
+def test_open_without_target_uses_single_obvious_object():
+    game = Game(seed=4517)
+    game.state.current_room = "front_gate"
+    game.state.discovered_rooms.add("front_gate")
+    game.state.inventory.append("groundskeeper_key")
+    game.process("unlock gate")
+    assert "ready" in game.process("open")

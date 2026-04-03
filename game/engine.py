@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from game.content import ITEMS, NPCS, ROOMS, intro_text, parse_args
+from game.ambient import select_ambient_line, should_emit_ambient
 from game.map import render_map
 from game.parser import Command, parse_command
 from game.persistence import load_game, save_game
@@ -282,7 +283,14 @@ class Game:
             if self.state.current_room == "orrery_dome" and text.lower().strip().startswith(("set ", "align ", "position ")):
                 return self.set_levers_hint()
             return "I don't understand that."
-        return handler(command)
+        response = handler(command)
+        self.state.turn_count += 1
+        ambient = None
+        if self.state.running and should_emit_ambient(self.state, command.action):
+            ambient = select_ambient_line(self.state)
+        if ambient:
+            return response + "\n" + ambient
+        return response
 
     def do_look(self, _: Command) -> str:
         return self.describe_room()

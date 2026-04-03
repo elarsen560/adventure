@@ -28,6 +28,9 @@ class GameState:
     current_room: str = "cliff_path"
     inventory: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    turn_count: int = 0
+    last_ambient_turn: int = -99
+    ambient_history: dict[str, list[str]] = field(default_factory=dict)
     room_items: dict[str, list[str]] = field(default_factory=dict)
     hidden_items: dict[str, list[str]] = field(default_factory=dict)
     discovered_rooms: set[str] = field(default_factory=set)
@@ -79,6 +82,9 @@ class GameState:
             "current_room": self.current_room,
             "inventory": self.inventory,
             "notes": self.notes,
+            "turn_count": self.turn_count,
+            "last_ambient_turn": self.last_ambient_turn,
+            "ambient_history": self.ambient_history,
             "room_items": self.room_items,
             "hidden_items": self.hidden_items,
             "discovered_rooms": sorted(self.discovered_rooms),
@@ -95,6 +101,9 @@ class GameState:
         state.current_room = data["current_room"]
         state.inventory = list(data["inventory"])
         state.notes = list(data.get("notes", []))
+        state.turn_count = data.get("turn_count", 0)
+        state.last_ambient_turn = data.get("last_ambient_turn", -99)
+        state.ambient_history = {k: list(v) for k, v in data.get("ambient_history", {}).items()}
         state.room_items = {k: list(v) for k, v in data["room_items"].items()}
         state.hidden_items = {k: list(v) for k, v in data["hidden_items"].items()}
         state.discovered_rooms = set(data["discovered_rooms"])

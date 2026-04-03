@@ -64,6 +64,8 @@ The parser supports classic text adventure commands, including:
 - `enter <code>`
 - `note <text>`
 - `notes`
+- `new note <text>`
+- `read notes`
 - `inventory` or `i`
 - `talk <character>`
 - `help`
@@ -76,7 +78,9 @@ The parser is forgiving about capitalization, punctuation, filler words such as 
 
 The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
 
-You can also keep a player-authored notebook with `note <text>` and review it with `notes` or `read notes`.
+You can also keep a player-authored notebook with `note <text>` or `new note <text>`, and review it with `notes` or `read notes`.
+
+During normal play, the observatory may occasionally emit short atmospheric ambient lines tied to your location and the station's changing condition. These are intentionally infrequent, deterministic within a run, and do not reveal puzzle solutions.
 
 Seed-variable critical-path items are always clued in-world with both room-level hints and examinable reveals, so randomized runs remain fair and solvable without changing the puzzle structure.
 

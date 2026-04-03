@@ -16,6 +16,64 @@ CODE_SETS = [
 ]
 
 
+AMBIENT_POOLS = {
+    "global": [
+        "Somewhere in the stonework, water ticks with patient regularity.",
+        "The observatory answers the storm in sighs, creaks, and distant metal knocks.",
+        "For a moment the wind drops, and the whole station seems to hold its breath.",
+    ],
+    "cliff_path": [
+        "Spray drifts up from below and salts the air.",
+        "Far beneath the path, surf bursts white against unseen rock.",
+    ],
+    "front_gate": [
+        "The chain gives a faint iron clink whenever the wind changes.",
+        "Rain beads on the gate bars and runs black down the metal.",
+    ],
+    "foyer": [
+        "A loose frame taps softly somewhere along the wall of portraits.",
+        "Your steps leave the foyer listening after you.",
+    ],
+    "east_hall": [
+        "Conduits in the ceiling mutter whenever the weather surges.",
+        "The corridor smells faintly of old oil and cold metal.",
+    ],
+    "generator_room": [
+        "The heavy machinery seems to brood in the dark.",
+        "Water still glistens in seams between the floor stones.",
+    ],
+    "conservatory": [
+        "Leaves whisper together under the burden of rain.",
+        "Somewhere among the vines, a drop of water falls with clocklike precision.",
+    ],
+    "archive": [
+        "The sealed room swallows sound almost completely.",
+        "A drawer settles deeper in its runners with a dry wooden click.",
+    ],
+    "lift_landing": [
+        "The lift cables vanish upward into shadow without a sound.",
+        "The empty carriage rocks so slightly you cannot be sure it moved at all.",
+    ],
+    "orrery_dome": [
+        "High overhead, the dome returns the storm as a low distant murmur.",
+        "Brass and darkness fill the great chamber with a solemn expectancy.",
+    ],
+    "power_on": [
+        "Somewhere deeper in the station, a restored relay snaps shut.",
+        "A low electrical hum now threads the silence.",
+    ],
+    "archive_unlocked": [
+        "The unsealed archive door gives an occasional minute settling click.",
+    ],
+    "secret_door_open": [
+        "From the hidden passage comes the faint dry smell of paper and old tea.",
+    ],
+    "lens_installed": [
+        "A pale gleam lingers in the dome machinery, then fades again.",
+    ],
+}
+
+
 ITEMS = {
     "groundskeeper_key": Item(
         "groundskeeper_key",

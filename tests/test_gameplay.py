@@ -1,4 +1,5 @@
 from game.engine import Game
+from game.ambient import ambient_candidates, should_emit_ambient
 from game.persistence import load_game, resolve_save_path, save_game
 from game.state import validate_starting_key_access
 
@@ -169,7 +170,7 @@ def test_key_is_accessible_across_many_seeds():
             assert "reflects more sharply" in room_text
             text = game.process("examine offerings")
         assert "groundskeeper key" in text
-        assert game.process("take groundskeeper key") == "You take the groundskeeper key."
+        assert game.process("take groundskeeper key").startswith("You take the groundskeeper key.")
 
 
 def test_transit_token_has_hint_reveal_and_is_takable_across_many_seeds():
@@ -186,4 +187,36 @@ def test_transit_token_has_hint_reveal_and_is_takable_across_many_seeds():
             assert "small brass glimmer" in room_text
             text = game.process("examine tea service")
         assert "transit token" in text
-        assert game.process("take token") == "You take the transit token."
+        assert game.process("take token").startswith("You take the transit token.")
+
+
+def test_ambient_system_excludes_utility_commands():
+    game = Game(seed=4517)
+    game.state.turn_count = 10
+    assert should_emit_ambient(game.state, "help") is False
+    assert should_emit_ambient(game.state, "notes") is False
+    assert should_emit_ambient(game.state, "map") is False
+
+
+def test_ambient_candidates_reflect_room_and_power_state():
+    game = Game(seed=4517)
+    game.state.current_room = "generator_room"
+    before = ambient_candidates(game.state)
+    assert any("machinery" in line or "Water still glistens" in line for line in before)
+    game.state.flags["power_on"] = True
+    after = ambient_candidates(game.state)
+    assert len(after) > len(before)
+    assert any("electrical hum" in line or "relay snaps" in line for line in after)
+
+
+def test_ambient_can_append_to_normal_command_output():
+    game = Game(seed=4517)
+    game.state.turn_count = 7
+    for _ in range(6):
+        text = game.process("look")
+        if "\n" in text and "Exits:" in text:
+            trailing = text.splitlines()[-1]
+            if trailing and trailing != "Exits: east, south.":
+                assert trailing != "Exits: east, south."
+                return
+    raise AssertionError("Expected at least one ambient line to appear over several normal commands.")

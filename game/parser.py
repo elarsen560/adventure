@@ -55,6 +55,17 @@ def _normalize(text: str) -> list[str]:
 
 
 def parse_command(text: str) -> Command:
+    stripped = text.strip()
+    lowered = stripped.lower()
+    if lowered == "notes" or lowered == "read notes":
+        return Command("notes", raw=text)
+    if lowered.startswith("new note "):
+        note_text = stripped[9:].strip()
+        return Command("note", target=note_text or None, raw=text)
+    if lowered.startswith("note "):
+        note_text = stripped[5:].strip()
+        return Command("note", target=note_text or None, raw=text)
+
     parts = _normalize(text)
     if not parts:
         return Command("empty", raw=text)
@@ -76,7 +87,7 @@ def parse_command(text: str) -> Command:
     if verb == "go" and rest and rest[0] in DIRECTION_ALIASES:
         rest[0] = DIRECTION_ALIASES[rest[0]]
 
-    if verb in {"save", "load", "enter", "map"}:
+    if verb in {"save", "load", "enter", "map", "notes"}:
         target = " ".join(rest) if rest else None
         return Command(verb, target=target, raw=text)
 

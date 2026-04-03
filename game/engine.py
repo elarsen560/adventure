@@ -134,6 +134,8 @@ use <item> on <target>
 open <thing>
 unlock <thing>
 enter <code>
+note <text>
+notes
 inventory / i
 map
 talk <character>
@@ -264,6 +266,8 @@ class Game:
             "use": self.do_use,
             "open": self.do_open,
             "unlock": self.do_unlock,
+            "note": self.do_note,
+            "notes": self.do_notes,
             "inventory": self.do_inventory,
             "map": self.do_map,
             "help": self.do_help,
@@ -534,6 +538,20 @@ class Game:
         if not self.state.inventory:
             return "You are carrying nothing."
         return "You carry: " + ", ".join(ITEMS[item_id].name for item_id in self.state.inventory) + "."
+
+    def do_note(self, command: Command) -> str:
+        if not command.target:
+            return "Write what?"
+        self.state.notes.append(command.target)
+        return "Noted."
+
+    def do_notes(self, _: Command) -> str:
+        if not self.state.notes:
+            return "Your notebook is empty."
+        lines = ["Notebook:"]
+        for index, note in enumerate(self.state.notes, start=1):
+            lines.append(f"{index}. {note}")
+        return "\n".join(lines)
 
     def do_help(self, _: Command) -> str:
         return HELP_TEXT

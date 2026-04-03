@@ -27,6 +27,7 @@ class GameState:
     seed: int
     current_room: str = "cliff_path"
     inventory: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
     room_items: dict[str, list[str]] = field(default_factory=dict)
     hidden_items: dict[str, list[str]] = field(default_factory=dict)
     discovered_rooms: set[str] = field(default_factory=set)
@@ -77,6 +78,7 @@ class GameState:
             "seed": self.seed,
             "current_room": self.current_room,
             "inventory": self.inventory,
+            "notes": self.notes,
             "room_items": self.room_items,
             "hidden_items": self.hidden_items,
             "discovered_rooms": sorted(self.discovered_rooms),
@@ -92,6 +94,7 @@ class GameState:
         state = cls(seed=data["seed"])
         state.current_room = data["current_room"]
         state.inventory = list(data["inventory"])
+        state.notes = list(data.get("notes", []))
         state.room_items = {k: list(v) for k, v in data["room_items"].items()}
         state.hidden_items = {k: list(v) for k, v in data["hidden_items"].items()}
         state.discovered_rooms = set(data["discovered_rooms"])

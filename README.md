@@ -62,6 +62,8 @@ The parser supports classic text adventure commands, including:
 - `open <thing>`
 - `unlock <thing>`
 - `enter <code>`
+- `note <text>`
+- `notes`
 - `inventory` or `i`
 - `talk <character>`
 - `help`
@@ -73,6 +75,8 @@ The parser supports classic text adventure commands, including:
 The parser is forgiving about capitalization, punctuation, filler words such as `the` and `to`, and several common verb or noun synonyms.
 
 The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
+
+You can also keep a player-authored notebook with `note <text>` and review it with `notes` or `read notes`.
 
 Seed-variable critical-path items are always clued in-world with both room-level hints and examinable reveals, so randomized runs remain fair and solvable without changing the puzzle structure.
 

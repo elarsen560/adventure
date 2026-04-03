@@ -18,12 +18,14 @@ def test_seeded_variation_is_reproducible():
 def test_save_and_load_roundtrip(tmp_path):
     game = Game(seed=2001)
     game.process("look")
+    game.process("note Check the generator panel")
     path = tmp_path / "save.json"
     save_game(game.state, str(path))
     loaded = load_game(str(path))
     assert loaded.seed == game.state.seed
     assert loaded.variation == game.state.variation
     assert loaded.current_room == game.state.current_room
+    assert loaded.notes == ["Check the generator panel"]
 
 
 def test_bare_save_name_resolves_to_saves_folder():
@@ -128,6 +130,25 @@ def test_unlocking_gate_is_stable_on_repeat():
     game.state.inventory.append("groundskeeper_key")
     assert game.process("unlock gate") == "The key turns after a gritty pause. The chain loosens and the front gate stands open."
     assert game.process("unlock gate") == "It is already unlocked."
+
+
+def test_adding_note_appends_to_notebook():
+    game = Game(seed=4517)
+    assert game.process("note The sea cave is worth another look.") == "Noted."
+    assert game.state.notes == ["The sea cave is worth another look."]
+
+
+def test_reading_notes_lists_entries():
+    game = Game(seed=4517)
+    game.process("note First clue")
+    game.process("note Second clue")
+    assert game.process("notes") == "Notebook:\n1. First clue\n2. Second clue"
+
+
+def test_note_aliases_work():
+    game = Game(seed=4517)
+    assert game.process("new note Lift token may be upstairs") == "Noted."
+    assert game.process("read notes") == "Notebook:\n1. Lift token may be upstairs"
 
 
 def test_key_is_accessible_across_many_seeds():

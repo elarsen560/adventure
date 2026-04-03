@@ -13,6 +13,7 @@ The project is organized as a small, expandable Python game rather than a single
 - `game/engine.py`: command handling, room flow, interaction logic, and win-state handling
 - `game/ambient.py`: deterministic atmospheric ambient-text selection
 - `game/companion.py`: optional constrained companion integration via Codex CLI or OpenAI API
+- `game/hazards.py`: seeded environmental hazard selection and resolution rules
 - `game/map.py`: authored ASCII map rendering for explored areas
 - `game/state.py`: runtime game state and world initialization
 - `game/content.py`: authored rooms, items, NPCs, and replay variability
@@ -32,7 +33,7 @@ Clone the repo, change into the project directory, and run the game with Python 
 
 The optional companion prefers a local authenticated `codex exec` session if the Codex CLI is installed and logged in. If Codex CLI is unavailable, it can fall back to the OpenAI API when `OPENAI_API_KEY` is set.
 
-You can keep environment settings in a local `.env` file. See `.env.example` for the expected variable names.
+You can keep environment settings in a local `.env` file. The companion currently reads `OPENAI_API_KEY` and optional `OPENAI_MODEL` from either the live environment or that file.
 
 ## Run
 
@@ -106,6 +107,8 @@ You can consult an optional constrained companion with `ask <question>` or just 
 
 During normal play, the observatory may occasionally emit short atmospheric ambient lines tied to your location and the station's changing condition. These are intentionally infrequent, deterministic within a run, and do not reveal puzzle solutions.
 
+Each run also includes one seeded mid-game environmental hazard in a valid authored room. Hazards are foreshadowed in-room, can be resolved through ordinary observation, and are meant to add tension without changing the underlying puzzle structure.
+
 Seed-variable critical-path items are always clued in-world with both room-level hints and examinable reveals, so randomized runs remain fair and solvable without changing the puzzle structure.
 
 ## Saves
@@ -121,6 +124,7 @@ Each run is generated from a reproducible seed shown at the start of the game. T
 - which exterior location hides the groundskeeper key
 - where the transit token appears
 - which room gets an optional extra reward
+- which environmental hazard appears in which authored mid-game room
 - which authored four-word archive code is used
 - the final three-number lever alignment
 - a small piece of atmospheric intro text

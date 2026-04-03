@@ -7,6 +7,7 @@ from pathlib import Path
 from game.companion import FALLBACK_MESSAGE, build_companion_context, build_companion_prompt, companion_available, request_companion_response
 from game.content import ITEMS, NPCS, ROOMS, intro_text, parse_args
 from game.ambient import select_ambient_line, should_emit_ambient
+from game.hazards import hazard_clue, hazard_definition, hazard_feature_aliases, hazard_hint_targets, hazard_lingering_text, hazard_resolves_on_examine, should_warn_on_go, should_warn_on_take, should_warn_on_use
 from game.map import render_map, room_lookup
 from game.parser import Command, parse_command
 from game.persistence import load_game, save_game
@@ -195,6 +196,9 @@ class Game:
         state_note = self.room_state_note()
         if state_note:
             lines.append(state_note)
+        hazard_note = self.hazard_room_note()
+        if hazard_note:
+            lines.append(hazard_note)
         hidden_note = self.hidden_item_hint()
         if hidden_note:
             lines.append(hidden_note)
@@ -250,6 +254,17 @@ class Game:
             return "The mechanism has changed: " + "; ".join(notes) + "."
         return None
 
+    def hazard_room_note(self) -> str | None:
+        lingering = hazard_lingering_text(
+            self.state.hazard_type,
+            self.state.current_room,
+            self.state.hazard_resolved,
+            self.state.hazard_warnings,
+        )
+        if lingering:
+            return lingering
+        return hazard_clue(self.state.hazard_type, self.state.current_room, self.state.hazard_resolved)
+
     def hidden_item_hint(self) -> str | None:
         hidden = self.state.hidden_items.get(self.state.current_room, [])
         if "groundskeeper_key" in hidden:
@@ -278,6 +293,9 @@ class Game:
         for alias, feature_name in FEATURE_ALIASES.get(self.state.current_room, {}).items():
             for variant in phrase_variants(alias):
                 option_map[variant] = feature_name
+        for alias, feature_name in hazard_feature_aliases(self.state.hazard_type, self.state.current_room).items():
+            for variant in phrase_variants(alias):
+                option_map[variant] = feature_name
         for alias, feature_name in ROOM_DESCRIPTION_REFERENTS.get(self.state.current_room, {}).items():
             for variant in phrase_variants(alias):
                 option_map[variant] = feature_name
@@ -286,6 +304,9 @@ class Game:
     def room_target_hints(self) -> str:
         room = ROOMS[self.state.current_room]
         names = list(room.features)
+        for name in hazard_hint_targets(self.state.hazard_type, self.state.current_room):
+            if name not in names:
+                names.append(name)
         names.extend(ITEMS[item_id].name for item_id in current_room_items(self.state))
         npcs = visible_npcs(self.state, self.state.current_room)
         names.extend(NPCS[npc_id].name for npc_id in npcs)
@@ -413,7 +434,10 @@ class Game:
             reveal_hidden_item(self.state, "sea_cave", "groundskeeper_key")
             return room.features[target] + " Behind a crust of wax and shells lies a groundskeeper key left among the offerings."
         if room_id == "archive" and target == "cases" and "transit_token" in current_room_items(self.state):
-            return room.features[target] + " One open padded case holds a transit token, its brass face stamped DOME LIFT."
+            return self.with_hazard_resolution(
+                room.features[target] + " One open padded case holds a transit token, its brass face stamped DOME LIFT.",
+                target,
+            )
         if room_id == "keepers_quarters" and target == "tea service" and "transit_token" in current_room_items(self.state):
             return room.features[target] + " Beside the cup sits a transit token, as if set down during an interrupted meal."
         if room_id == "keepers_quarters" and target == "notebooks" and "transit_token" in current_room_items(self.state):
@@ -463,7 +487,14 @@ class Game:
             return room.features[target] + " The frame hides a latch, but you need a better look at it."
         if room_id == "conservatory" and target == "labels":
             return self.state.clue_texts["conservatory_labels"] + "\nThe sequence looks important enough to enter somewhere exactly as written."
-        return room.features[target]
+        return self.with_hazard_resolution(room.features[target], target)
+
+    def with_hazard_resolution(self, text: str, target: str) -> str:
+        hazard_text = hazard_resolves_on_examine(self.state.hazard_type, self.state.current_room, target)
+        if hazard_text and not self.state.hazard_resolved:
+            self.state.hazard_resolved = True
+            return text + " " + hazard_text
+        return text
 
     def do_go(self, command: Command) -> str:
         if not command.target:
@@ -488,8 +519,14 @@ class Game:
                 return "The lift jams."
             if "transit_token" not in self.state.inventory:
                 return "The call slot flashes amber. The lift requires a transit token."
+            hazard_response = self.trigger_hazard_if_needed(action="go", direction=direction)
+            if hazard_response:
+                return hazard_response
             return self.move_to(destination) + "\nThe lift carries you upward with the solemn patience of old machinery."
 
+        hazard_response = self.trigger_hazard_if_needed(action="go", direction=direction)
+        if hazard_response:
+            return hazard_response
         return self.move_to(destination)
 
     def move_to(self, destination: str) -> str:
@@ -502,6 +539,9 @@ class Game:
             room_items = current_room_items(self.state)
             if len(room_items) == 1:
                 item_id = room_items[0]
+                hazard_response = self.trigger_hazard_if_needed(action="take", item_id=item_id)
+                if hazard_response:
+                    return hazard_response
                 self.state.room_items[self.state.current_room].remove(item_id)
                 self.state.inventory.append(item_id)
                 return f"You take the {ITEMS[item_id].name}."
@@ -516,6 +556,9 @@ class Game:
                 return f"You take the {ITEMS[item_id].name}."
             names = ", ".join(ITEMS[item_id].name for item_id in room_items) if room_items else "nothing portable"
             return f"You can't take that. Here you can take {names}."
+        hazard_response = self.trigger_hazard_if_needed(action="take", item_id=item_id)
+        if hazard_response:
+            return hazard_response
         self.state.room_items[self.state.current_room].remove(item_id)
         self.state.inventory.append(item_id)
         return f"You take the {ITEMS[item_id].name}."
@@ -555,6 +598,9 @@ class Game:
 
     def use_item(self, item_id: str, target: str | None) -> str:
         room_id = self.state.current_room
+        hazard_response = self.trigger_hazard_if_needed(action="use", item_id=item_id, target=target)
+        if hazard_response:
+            return hazard_response
 
         if item_id == "groundskeeper_key" and room_id == "front_gate" and target in {None, "gate", "lock", "front gate"}:
             if not self.state.flags["front_gate_unlocked"]:
@@ -597,6 +643,39 @@ class Game:
         if room_id == "lift_landing" and item_id == "oil_flask":
             return "The oil needs to go on the lift itself, especially the guide gears."
         return "Nothing happens."
+
+    def trigger_hazard_if_needed(
+        self,
+        *,
+        action: str,
+        item_id: str | None = None,
+        target: str | None = None,
+        direction: str | None = None,
+    ) -> str | None:
+        if self.state.hazard_resolved:
+            return None
+        hazard = hazard_definition(self.state.hazard_type)
+        if not hazard or hazard["room"] != self.state.current_room:
+            return None
+
+        warned = False
+        if action == "take" and item_id and should_warn_on_take(self.state.hazard_type, self.state.current_room, item_id):
+            warned = True
+        elif action == "use" and item_id and should_warn_on_use(self.state.hazard_type, self.state.current_room, item_id):
+            warned = True
+        elif action == "go" and direction and should_warn_on_go(self.state.hazard_type, self.state.current_room, direction):
+            warned = True
+
+        if not warned:
+            return None
+        return self.resolve_hazard_trigger(hazard)
+
+    def resolve_hazard_trigger(self, hazard: dict) -> str:
+        self.state.hazard_warnings += 1
+        if self.state.hazard_warnings >= 2:
+            self.state.running = False
+            return hazard["game_over"]
+        return hazard["warning"]
 
     def do_open(self, command: Command) -> str:
         if not command.target:

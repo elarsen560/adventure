@@ -32,6 +32,8 @@ def test_save_and_load_roundtrip(tmp_path):
     assert loaded.variation == game.state.variation
     assert loaded.current_room == game.state.current_room
     assert loaded.notes == ["Check the generator panel"]
+    assert loaded.hazard_type == game.state.hazard_type
+    assert loaded.hazard_room == game.state.hazard_room
 
 
 def test_bare_save_name_resolves_to_saves_folder():
@@ -80,6 +82,8 @@ def test_full_playthrough_reaches_victory():
         game.process("open painting")
         game.process("take transit token")
     _to_room(game, "lift_landing")
+    if game.state.hazard_type == "snapping_lattice":
+        game.process("examine gate")
     game.process("use oil flask on lift")
     game.process("go north")
     game.process("go north")
@@ -280,3 +284,96 @@ def test_open_without_target_uses_single_obvious_object():
     game.state.inventory.append("groundskeeper_key")
     game.process("unlock gate")
     assert "ready" in game.process("open")
+
+
+def test_seeded_hazard_is_reproducible_and_midgame():
+    game_a = Game(seed=4518)
+    game_b = Game(seed=4518)
+    assert game_a.state.hazard_type == game_b.state.hazard_type
+    assert game_a.state.hazard_room == game_b.state.hazard_room
+    assert game_a.state.hazard_room in {"workshop", "archive", "lift_landing"}
+
+
+def test_workshop_hazard_warns_then_resolves_cleanly():
+    game = Game(seed=4518)
+    _to_room(game, "workshop")
+    room_text = game.process("look")
+    assert "chain hoist" in room_text
+    warning = game.process("take ceramic fuse")
+    assert "closer look at the bench" in warning
+    assert "fuse" not in game.state.inventory
+    resolved = game.process("examine bench")
+    assert "left would keep clear" in resolved
+    assert game.state.hazard_resolved is True
+    assert game.process("take ceramic fuse").startswith("You take the ceramic fuse.")
+
+
+def test_archive_hazard_warns_before_game_over_on_repeat():
+    game = Game(seed=4519)
+    _to_room(game, "archive")
+    room_text = game.process("look")
+    assert "ready to slide" in room_text
+    first = game.process("take star lens")
+    assert "Another careless tug might bring the whole table over" in first
+    second = game.process("take star lens")
+    assert "sealed room closes over the noise" in second
+    assert game.state.running is False
+
+
+def test_lift_hazard_blocks_once_then_allows_safe_passage():
+    game = Game(seed=4517)
+    _to_room(game, "lift_landing")
+    game.state.flags["power_on"] = True
+    game.state.flags["lift_oiled"] = True
+    game.state.inventory.append("transit_token")
+    room_text = game.process("look")
+    assert "sprung inward" in room_text
+    warning = game.process("go north")
+    assert "Examining it would be wiser" in warning
+    assert game.state.current_room == "lift_landing"
+    resolved = game.process("examine gate")
+    assert "fault is manageable" in resolved
+    text = game.process("go north")
+    assert "Dome Antechamber" in text
+    assert game.state.current_room == "dome_antechamber"
+
+
+def test_workshop_hazard_accepts_obvious_room_nouns():
+    game = Game(seed=4518)
+    _to_room(game, "workshop")
+    text = game.process("examine hoist")
+    assert "keep clear of it" in text
+    assert game.state.hazard_resolved is True
+
+
+def test_workshop_hazard_chain_alias_matches_same_resolution():
+    game = Game(seed=4518)
+    _to_room(game, "workshop")
+    text = game.process("examine chain")
+    assert "keep clear of it" in text
+    assert game.state.hazard_resolved is True
+
+
+def test_archive_hazard_accepts_leaning_stack_noun():
+    game = Game(seed=4519)
+    _to_room(game, "archive")
+    text = game.process("examine stack")
+    assert "safe way to reach the table" in text
+    assert game.state.hazard_resolved is True
+
+
+def test_lift_hazard_accepts_runner_noun():
+    game = Game(seed=4517)
+    _to_room(game, "lift_landing")
+    text = game.process("examine runner")
+    assert "fault is manageable" in text
+    assert game.state.hazard_resolved is True
+
+
+def test_hazard_room_hint_text_surfaces_obvious_nouns():
+    game = Game(seed=4518)
+    _to_room(game, "workshop")
+    text = game.process("examine nonsense")
+    assert "You might try" in text
+    assert "bench" in text
+    assert "hoist" in text

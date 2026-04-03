@@ -4,6 +4,7 @@ import difflib
 from dataclasses import dataclass, field
 
 from game.content import ITEMS, NPCS, ROOMS, build_variation
+from game.hazards import select_hazard, validate_hazard_selection
 
 
 KEY_DISCOVERY_RULES = {
@@ -109,6 +110,10 @@ class GameState:
     seed: int
     current_room: str = "cliff_path"
     debug_mode: bool = False
+    hazard_type: str | None = None
+    hazard_room: str | None = None
+    hazard_warnings: int = 0
+    hazard_resolved: bool = False
     inventory: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     recent_history: list[dict[str, str]] = field(default_factory=list)
@@ -128,6 +133,8 @@ class GameState:
     def new(cls, seed: int) -> "GameState":
         variation = build_variation(seed)
         state = cls(seed=seed, variation=variation)
+        state.hazard_type, state.hazard_room = select_hazard(seed)
+        validate_hazard_selection(state.hazard_type, state.hazard_room)
         state.discovered_rooms = {"cliff_path"}
         state.flags = {
             "front_gate_unlocked": False,
@@ -165,6 +172,10 @@ class GameState:
             "seed": self.seed,
             "current_room": self.current_room,
             "debug_mode": self.debug_mode,
+            "hazard_type": self.hazard_type,
+            "hazard_room": self.hazard_room,
+            "hazard_warnings": self.hazard_warnings,
+            "hazard_resolved": self.hazard_resolved,
             "inventory": self.inventory,
             "notes": self.notes,
             "recent_history": self.recent_history,
@@ -184,8 +195,14 @@ class GameState:
     @classmethod
     def from_dict(cls, data: dict) -> "GameState":
         state = cls(seed=data["seed"])
+        saved_hazard_type = data.get("hazard_type")
+        saved_hazard_room = data.get("hazard_room")
         state.current_room = data["current_room"]
         state.debug_mode = data.get("debug_mode", False)
+        state.hazard_type = saved_hazard_type
+        state.hazard_room = saved_hazard_room
+        state.hazard_warnings = data.get("hazard_warnings", 0)
+        state.hazard_resolved = data.get("hazard_resolved", False if saved_hazard_type else True)
         state.inventory = list(data["inventory"])
         state.notes = list(data.get("notes", []))
         state.recent_history = [dict(item) for item in data.get("recent_history", [])]

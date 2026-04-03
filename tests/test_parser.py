@@ -52,3 +52,15 @@ def test_new_note_alias_maps_to_note():
 def test_read_notes_alias_maps_to_notes():
     command = parse_command("read notes")
     assert command.action == "notes"
+
+
+def test_ask_without_text_parses():
+    command = parse_command("ask")
+    assert command.action == "ask"
+    assert command.target is None
+
+
+def test_ask_preserves_freeform_text():
+    command = parse_command("ask What does the map suggest from here?")
+    assert command.action == "ask"
+    assert command.target == "What does the map suggest from here?"

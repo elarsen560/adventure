@@ -4,6 +4,7 @@ import random
 import sys
 from pathlib import Path
 
+from game.companion import FALLBACK_MESSAGE, build_companion_context, build_companion_prompt, companion_available, request_companion_response
 from game.content import ITEMS, NPCS, ROOMS, intro_text, parse_args
 from game.ambient import select_ambient_line, should_emit_ambient
 from game.map import render_map
@@ -135,6 +136,7 @@ use <item> on <target>
 open <thing>
 unlock <thing>
 enter <code>
+ask [question]
 note <text>
 notes
 inventory / i
@@ -267,6 +269,7 @@ class Game:
             "use": self.do_use,
             "open": self.do_open,
             "unlock": self.do_unlock,
+            "ask": self.do_ask,
             "note": self.do_note,
             "notes": self.do_notes,
             "inventory": self.do_inventory,
@@ -284,6 +287,7 @@ class Game:
                 return self.set_levers_hint()
             return "I don't understand that."
         response = handler(command)
+        self.record_history(command.raw or command.action, response)
         self.state.turn_count += 1
         ambient = None
         if self.state.running and should_emit_ambient(self.state, command.action):
@@ -291,6 +295,10 @@ class Game:
         if ambient:
             return response + "\n" + ambient
         return response
+
+    def record_history(self, command_text: str, response_text: str) -> None:
+        self.state.recent_history.append({"command": command_text, "response": response_text})
+        self.state.recent_history = self.state.recent_history[-10:]
 
     def do_look(self, _: Command) -> str:
         return self.describe_room()
@@ -560,6 +568,20 @@ class Game:
         for index, note in enumerate(self.state.notes, start=1):
             lines.append(f"{index}. {note}")
         return "\n".join(lines)
+
+    def do_ask(self, command: Command) -> str:
+        if not companion_available():
+            return FALLBACK_MESSAGE
+        context = build_companion_context(
+            room_name=ROOMS[self.state.current_room].name,
+            room_text=self.describe_room().strip(),
+            inventory=[ITEMS[item_id].name for item_id in self.state.inventory],
+            notes=list(self.state.notes),
+            map_text=render_map(self.state),
+            recent_history=list(self.state.recent_history),
+        )
+        prompt = build_companion_prompt(context, command.target)
+        return request_companion_response(prompt)
 
     def do_help(self, _: Command) -> str:
         return HELP_TEXT

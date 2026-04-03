@@ -28,6 +28,7 @@ class GameState:
     current_room: str = "cliff_path"
     inventory: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    recent_history: list[dict[str, str]] = field(default_factory=list)
     turn_count: int = 0
     last_ambient_turn: int = -99
     ambient_history: dict[str, list[str]] = field(default_factory=dict)
@@ -82,6 +83,7 @@ class GameState:
             "current_room": self.current_room,
             "inventory": self.inventory,
             "notes": self.notes,
+            "recent_history": self.recent_history,
             "turn_count": self.turn_count,
             "last_ambient_turn": self.last_ambient_turn,
             "ambient_history": self.ambient_history,
@@ -101,6 +103,7 @@ class GameState:
         state.current_room = data["current_room"]
         state.inventory = list(data["inventory"])
         state.notes = list(data.get("notes", []))
+        state.recent_history = [dict(item) for item in data.get("recent_history", [])]
         state.turn_count = data.get("turn_count", 0)
         state.last_ambient_turn = data.get("last_ambient_turn", -99)
         state.ambient_history = {k: list(v) for k, v in data.get("ambient_history", {}).items()}

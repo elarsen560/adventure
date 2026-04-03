@@ -11,6 +11,8 @@ The project is organized as a small, expandable Python game rather than a single
 - `main.py`: entry point for launching the game
 - `game/parser.py`: parser normalization and command parsing
 - `game/engine.py`: command handling, room flow, interaction logic, and win-state handling
+- `game/ambient.py`: deterministic atmospheric ambient-text selection
+- `game/companion.py`: optional constrained companion integration via Codex CLI or OpenAI API
 - `game/map.py`: authored ASCII map rendering for explored areas
 - `game/state.py`: runtime game state and world initialization
 - `game/content.py`: authored rooms, items, NPCs, and replay variability
@@ -27,6 +29,10 @@ Python 3.10+ is recommended. The project uses only the standard library.
 No external dependencies are required.
 
 Clone the repo, change into the project directory, and run the game with Python 3.
+
+The optional companion prefers a local authenticated `codex exec` session if the Codex CLI is installed and logged in. If Codex CLI is unavailable, it can fall back to the OpenAI API when `OPENAI_API_KEY` is set.
+
+You can keep environment settings in a local `.env` file. See `.env.example` for the expected variable names.
 
 ## Run
 
@@ -62,6 +68,7 @@ The parser supports classic text adventure commands, including:
 - `open <thing>`
 - `unlock <thing>`
 - `enter <code>`
+- `ask [question]`
 - `note <text>`
 - `notes`
 - `new note <text>`
@@ -79,6 +86,8 @@ The parser is forgiving about capitalization, punctuation, filler words such as 
 The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
 
 You can also keep a player-authored notebook with `note <text>` or `new note <text>`, and review it with `notes` or `read notes`.
+
+You can consult an optional constrained companion with `ask <question>` or just `ask` for a general suggestion. By default the game prefers a local authenticated `codex exec` session when available; otherwise it can use the OpenAI API if `OPENAI_API_KEY` is configured. The companion only receives currently visible game context, your inventory, your notes, the visible map, and recent turn history; it is designed to help interpret known information rather than reveal hidden state.
 
 During normal play, the observatory may occasionally emit short atmospheric ambient lines tied to your location and the station's changing condition. These are intentionally infrequent, deterministic within a run, and do not reveal puzzle solutions.
 

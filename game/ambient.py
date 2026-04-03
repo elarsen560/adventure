@@ -6,7 +6,7 @@ from game.content import AMBIENT_POOLS
 from game.state import GameState
 
 
-AMBIENT_EXCLUDED_ACTIONS = {"help", "notes", "map", "save", "load", "inventory"}
+AMBIENT_EXCLUDED_ACTIONS = {"help", "notes", "map", "save", "load", "inventory", "ask"}
 AMBIENT_CHANCE = 0.2
 AMBIENT_MIN_GAP = 2
 

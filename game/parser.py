@@ -57,6 +57,10 @@ def _normalize(text: str) -> list[str]:
 def parse_command(text: str) -> Command:
     stripped = text.strip()
     lowered = stripped.lower()
+    if lowered == "ask":
+        return Command("ask", raw=text)
+    if lowered.startswith("ask "):
+        return Command("ask", target=stripped[4:].strip() or None, raw=text)
     if lowered == "notes" or lowered == "read notes":
         return Command("notes", raw=text)
     if lowered.startswith("new note "):

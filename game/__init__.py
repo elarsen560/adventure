@@ -1,0 +1,1 @@
+"""Asterfall Observatory text adventure."""

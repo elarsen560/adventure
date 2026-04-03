@@ -48,6 +48,7 @@ python3 -m pytest
 The parser supports classic text adventure commands, including:
 
 - `look`
+- `map`
 - `examine <thing>`
 - `go <direction>`
 - `north`, `south`, `east`, `west`, `n`, `s`, `e`, `w`
@@ -67,6 +68,8 @@ The parser supports classic text adventure commands, including:
 - `set levers <a> <b> <c>` when the game reveals that final syntax
 
 The parser is forgiving about capitalization, punctuation, filler words such as `the` and `to`, and several common verb or noun synonyms.
+
+The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
 
 ## Saves
 

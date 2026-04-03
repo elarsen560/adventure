@@ -99,3 +99,23 @@ def test_take_error_suggests_look():
     game = Game(seed=4517)
     text = game.process("take token")
     assert "look" in text
+
+
+def test_map_shows_current_room_and_adjacent_unknowns():
+    game = Game(seed=4517)
+    text = game.process("map")
+    assert "[@ CP]" in text
+    assert "[? FG]" in text
+    assert "[? SC]" in text
+    assert "[? CY]" not in text
+
+
+def test_map_shows_blocked_and_opened_known_connections():
+    game = Game(seed=4517)
+    game.state.current_room = "front_gate"
+    game.state.discovered_rooms.update({"cliff_path", "front_gate"})
+    blocked = game.process("map")
+    assert "x" in blocked
+    game.state.flags["front_gate_unlocked"] = True
+    opened = game.process("map")
+    assert "---" in opened

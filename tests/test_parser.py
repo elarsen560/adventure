@@ -30,3 +30,8 @@ def test_apply_alias_maps_to_use():
     command = parse_command("apply oil flask to the lift")
     assert command.action == "use"
     assert command.target == "lift"
+
+
+def test_map_alias_maps_to_map_command():
+    command = parse_command("m")
+    assert command.action == "map"

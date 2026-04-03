@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from game.content import ITEMS, NPCS, ROOMS, intro_text, parse_args
+from game.map import render_map
 from game.parser import Command, parse_command
 from game.persistence import load_game, save_game
 from game.state import GameState, current_room_items, find_item_id, find_npc_id, reveal_hidden_item, visible_npcs
@@ -132,6 +133,7 @@ open <thing>
 unlock <thing>
 enter <code>
 inventory / i
+map
 talk <character>
 help
 save [filename]
@@ -241,6 +243,7 @@ class Game:
             "open": self.do_open,
             "unlock": self.do_unlock,
             "inventory": self.do_inventory,
+            "map": self.do_map,
             "help": self.do_help,
             "talk": self.do_talk,
             "save": self.do_save,
@@ -492,6 +495,9 @@ class Game:
 
     def do_help(self, _: Command) -> str:
         return HELP_TEXT
+
+    def do_map(self, _: Command) -> str:
+        return render_map(self.state)
 
     def do_talk(self, command: Command) -> str:
         if not command.target:

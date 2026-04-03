@@ -12,7 +12,7 @@ from pathlib import Path
 
 FALLBACK_MESSAGE = "Your companion can't be reached right now."
 DEFAULT_MODEL = "gpt-5"
-MAX_HISTORY = 8
+MAX_HISTORY = 10
 
 
 def companion_available() -> bool:
@@ -66,17 +66,17 @@ def build_companion_context(*, room_name: str, room_text: str, inventory: list[s
         "Visible room description:\n"
         f"{room_text}\n"
         f"Inventory: {inventory_text}\n"
-        "Player notes:\n"
+        "Recorded notes:\n"
         f"{notes_text}\n"
         "Visible map:\n"
         f"{map_text}\n"
-        "Recent history:\n"
+        "Recent turns:\n"
         f"{history_block}\n"
     )
 
 
 def build_companion_prompt(context: str, question: str | None) -> str:
-    player_request = question or "Give a brief general suggestion based only on the known context."
+    player_request = question or "Briefly identify the most evidenced unresolved thread in the current context."
     return (
         "You only know what appears in the supplied context. Do not assume or invent hidden game state.\n"
         "Sound like a companion from a 1980s-style parser adventure: restrained, atmospheric, practical, and slightly human or uncanny.\n"
@@ -85,9 +85,17 @@ def build_companion_prompt(context: str, question: str | None) -> str:
         "Keep your answer to one sentence, at most two.\n"
         "Prefer hints, clues, or gentle nudges over direct answers or instructions.\n"
         "Offer perspective or encouragement rather than solutioning.\n"
-        "For general questions such as what to do now, favor subtle guidance over specific action recommendations.\n"
-        "For map-based questions, stay grounded in the visible layout and do not over-interpret it.\n"
-        "If the context is insufficient, say so briefly and suggest what the player might inspect or consider next.\n\n"
+        "First synthesize what is already accomplished from the context.\n"
+        "Then identify what remains incomplete.\n"
+        "Distinguish between solved systems, unresolved but evidenced systems, and weak or speculative possibilities.\n"
+        "Answer from the strongest incomplete thread only, or the top two only if they are closely matched.\n"
+        "Avoid mentioning speculative leads unless there is concrete support in the visible room text, map, notes, inventory, or recent turns.\n"
+        "For general questions such as what to do now, briefly acknowledge solved systems if relevant and then weight the most evidenced remaining mechanism, location, or dependency.\n"
+        "For map-based questions, stay grounded in the visible layout and do not over-interpret puzzle relevance or narrative meaning unless it is explicit in the context.\n"
+        "When one unfinished thread is clearly stronger than the rest, give it more weight without turning it into a command.\n"
+        "Do not use imperative walkthrough language, and do not say do X then Y.\n"
+        "Do not give explicit puzzle solutions unless the exact answer already appears in the player's own visible notes or context and the player is plainly asking for interpretation of those known facts; even then, phrase it as a weighted inference rather than an instruction.\n"
+        "If evidence is thin, say so briefly and suggest inspection, but keep the suggestion grounded in the visible context.\n\n"
         "Context:\n"
         f"{context}\n"
         "Player request:\n"

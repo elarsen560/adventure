@@ -64,3 +64,14 @@ def test_ask_preserves_freeform_text():
     command = parse_command("ask What does the map suggest from here?")
     assert command.action == "ask"
     assert command.target == "What does the map suggest from here?"
+
+
+def test_goto_parses_room_target():
+    command = parse_command("goto archive")
+    assert command.action == "goto"
+    assert command.target == "archive"
+
+
+def test_full_map_parses_as_debug_command():
+    command = parse_command("full map")
+    assert command.action == "full_map"

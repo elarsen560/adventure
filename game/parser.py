@@ -57,6 +57,12 @@ def _normalize(text: str) -> list[str]:
 def parse_command(text: str) -> Command:
     stripped = text.strip()
     lowered = stripped.lower()
+    if lowered == "full map":
+        return Command("full_map", raw=text)
+    if lowered == "rooms":
+        return Command("rooms", raw=text)
+    if lowered.startswith("goto "):
+        return Command("goto", target=stripped[5:].strip() or None, raw=text)
     if lowered == "ask":
         return Command("ask", raw=text)
     if lowered.startswith("ask "):

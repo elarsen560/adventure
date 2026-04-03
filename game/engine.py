@@ -7,7 +7,7 @@ from pathlib import Path
 from game.companion import FALLBACK_MESSAGE, build_companion_context, build_companion_prompt, companion_available, request_companion_response
 from game.content import ITEMS, NPCS, ROOMS, intro_text, parse_args
 from game.ambient import select_ambient_line, should_emit_ambient
-from game.map import render_map
+from game.map import render_map, room_lookup
 from game.parser import Command, parse_command
 from game.persistence import load_game, save_game
 from game.state import GameState, current_room_items, find_item_id, find_npc_id, reveal_hidden_item, visible_npcs
@@ -148,10 +148,16 @@ load [filename]
 quit
 set levers <a> <b> <c>"""
 
+DEBUG_HELP_TEXT = """Debug commands:
+goto <room>
+full map
+rooms"""
+
 
 class Game:
-    def __init__(self, seed: int | None = None):
+    def __init__(self, seed: int | None = None, debug: bool = False):
         self.state = GameState.new(seed if seed is not None else random.randint(1000, 9999))
+        self.state.debug_mode = debug
 
     def set_state(self, state: GameState) -> None:
         self.state = state
@@ -274,6 +280,9 @@ class Game:
             "notes": self.do_notes,
             "inventory": self.do_inventory,
             "map": self.do_map,
+            "goto": self.do_goto,
+            "full_map": self.do_full_map,
+            "rooms": self.do_rooms,
             "help": self.do_help,
             "talk": self.do_talk,
             "save": self.do_save,
@@ -584,10 +593,47 @@ class Game:
         return request_companion_response(prompt)
 
     def do_help(self, _: Command) -> str:
+        if self.state.debug_mode:
+            return HELP_TEXT + "\n" + DEBUG_HELP_TEXT
         return HELP_TEXT
 
     def do_map(self, _: Command) -> str:
         return render_map(self.state)
+
+    def do_full_map(self, _: Command) -> str:
+        if not self.state.debug_mode:
+            return "I don't understand that."
+        return render_map(self.state, reveal_all=True, debug_label=True)
+
+    def do_rooms(self, _: Command) -> str:
+        if not self.state.debug_mode:
+            return "I don't understand that."
+        lines = ["Rooms:"]
+        for room_id, room in ROOMS.items():
+            lines.append(f"{room_id}: {room.name}")
+        return "\n".join(lines)
+
+    def do_goto(self, command: Command) -> str:
+        if not self.state.debug_mode:
+            return "I don't understand that."
+        if not command.target:
+            return "Goto where?"
+        destination = self.resolve_room_target(command.target)
+        if destination is None:
+            return "No such room."
+        self.state.current_room = destination
+        self.state.discovered_rooms = {destination}
+        return self.describe_room()
+
+    def resolve_room_target(self, query: str) -> str | None:
+        direct = room_lookup(query)
+        if direct:
+            return direct
+        normalized = " ".join(query.lower().split())
+        for room_id, room in ROOMS.items():
+            if normalized == room.name.lower():
+                return room_id
+        return None
 
     def do_talk(self, command: Command) -> str:
         if not command.target:
@@ -651,7 +697,7 @@ class Game:
 
 def run_game() -> None:
     args = parse_args(sys.argv[1:])
-    game = Game(seed=args.seed)
+    game = Game(seed=args.seed, debug=args.debug)
     print(intro_text(game.state))
     print(game.describe_room())
     print("\nType 'help' for commands.")

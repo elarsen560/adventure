@@ -26,6 +26,7 @@ def match_alias(name: str, aliases: tuple[str, ...], query: str) -> bool:
 class GameState:
     seed: int
     current_room: str = "cliff_path"
+    debug_mode: bool = False
     inventory: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     recent_history: list[dict[str, str]] = field(default_factory=list)
@@ -81,6 +82,7 @@ class GameState:
         return {
             "seed": self.seed,
             "current_room": self.current_room,
+            "debug_mode": self.debug_mode,
             "inventory": self.inventory,
             "notes": self.notes,
             "recent_history": self.recent_history,
@@ -101,6 +103,7 @@ class GameState:
     def from_dict(cls, data: dict) -> "GameState":
         state = cls(seed=data["seed"])
         state.current_room = data["current_room"]
+        state.debug_mode = data.get("debug_mode", False)
         state.inventory = list(data["inventory"])
         state.notes = list(data.get("notes", []))
         state.recent_history = [dict(item) for item in data.get("recent_history", [])]

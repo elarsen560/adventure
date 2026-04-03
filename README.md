@@ -46,6 +46,13 @@ To start a specific reproducible run:
 python3 main.py 4517
 ```
 
+To launch in debug mode for testing:
+
+```bash
+python3 main.py --debug
+python3 main.py 4517 --debug
+```
+
 ## Run Tests
 
 ```bash
@@ -81,9 +88,17 @@ The parser supports classic text adventure commands, including:
 - `quit`
 - `set levers <a> <b> <c>` when the game reveals that final syntax
 
+When debug mode is enabled, these extra commands are also available:
+
+- `goto <room>`
+- `full map`
+- `rooms`
+
 The parser is forgiving about capitalization, punctuation, filler words such as `the` and `to`, and several common verb or noun synonyms.
 
 The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
+
+In debug mode, `full map` reveals the complete authored layout immediately and `rooms` prints valid room ids and names for fast navigation/testing.
 
 You can also keep a player-authored notebook with `note <text>` or `new note <text>`, and review it with `notes` or `read notes`.
 

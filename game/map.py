@@ -55,8 +55,8 @@ CELL_WIDTH = 6
 CELL_HEIGHT = 2
 
 
-def render_map(state: GameState) -> str:
-    visible_rooms = visible_map_rooms(state)
+def render_map(state: GameState, *, reveal_all: bool = False, debug_label: bool = False) -> str:
+    visible_rooms = set(MAP_NODES) if reveal_all else visible_map_rooms(state)
     width = (max(node.x for node in MAP_NODES.values()) + 1) * CELL_WIDTH + 1
     height = (max(node.y for node in MAP_NODES.values()) + 1) * CELL_HEIGHT + 1
     canvas = [[" " for _ in range(width)] for _ in range(height)]
@@ -74,7 +74,8 @@ def render_map(state: GameState) -> str:
         lines.pop(0)
     while lines and not lines[-1].strip():
         lines.pop()
-    return "\n".join(lines) + "\n\nLegend: @ current, O visited, ? adjacent unexplored, x blocked"
+    header = "DEBUG FULL MAP\n" if debug_label else ""
+    return header + "\n".join(lines) + "\n\nLegend: @ current, O visited, ? adjacent unexplored, x blocked"
 
 
 def visible_map_rooms(state: GameState) -> set[str]:
@@ -143,3 +144,11 @@ def edge_blocked(room_a: str, room_b: str, state: GameState) -> bool:
     if pair == {"west_hall", "keepers_quarters"}:
         return not state.flags["secret_door_open"]
     return False
+
+
+def room_lookup(query: str) -> str | None:
+    query = " ".join(query.lower().split())
+    for room_id, node in MAP_NODES.items():
+        if query == room_id:
+            return room_id
+    return None

@@ -16,6 +16,11 @@ def test_seeded_variation_is_reproducible():
     assert game_a.state.hidden_items == game_b.state.hidden_items
 
 
+def test_debug_flag_sets_runtime_mode():
+    game = Game(seed=1337, debug=True)
+    assert game.state.debug_mode is True
+
+
 def test_save_and_load_roundtrip(tmp_path):
     game = Game(seed=2001)
     game.process("look")
@@ -220,3 +225,35 @@ def test_ambient_can_append_to_normal_command_output():
                 assert trailing != "Exits: east, south."
                 return
     raise AssertionError("Expected at least one ambient line to appear over several normal commands.")
+
+
+def test_goto_moves_without_changing_progression_state():
+    game = Game(seed=4517, debug=True)
+    game.state.flags["power_on"] = False
+    text = game.process("goto archive")
+    assert game.state.current_room == "archive"
+    assert game.state.discovered_rooms == {"archive"}
+    assert game.state.flags["power_on"] is False
+    assert "Archive" in text
+
+
+def test_full_map_debug_command_reveals_all_rooms():
+    game = Game(seed=4517, debug=True)
+    text = game.process("full map")
+    assert "DEBUG FULL MAP" in text
+    assert "[? OR]" in text
+    assert "[? AR]" in text
+
+
+def test_rooms_command_lists_room_ids_and_names():
+    game = Game(seed=4517, debug=True)
+    text = game.process("rooms")
+    assert "Rooms:" in text
+    assert "cliff_path: Cliff Path" in text
+    assert "orrery_dome: Orrery Dome" in text
+
+
+def test_goto_accepts_friendly_room_name():
+    game = Game(seed=4517, debug=True)
+    game.process("goto Orrery Dome")
+    assert game.state.current_room == "orrery_dome"

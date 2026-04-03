@@ -94,7 +94,7 @@ ROOMS = {
     "cliff_path": Room(
         "cliff_path",
         "Cliff Path",
-        "A flagstone path clings to the headland above a black and restless sea. Ahead, Asterfall Observatory rises from the rain like a stranded cathedral of brass and stone.",
+        "The flagstone path winds along the lip of the headland, slick with rain and white with salt. Far below, the sea hammers the cliffs in heavy black folds. Ahead, Asterfall Observatory looms through the weather, all blind windows, greened brass, and the vast curve of its darkened dome.",
         exits={"east": "front_gate", "south": "sea_cave"},
         features={
             "sea": "Below the cliff, surf breaks in white seams against the rock.",
@@ -104,7 +104,7 @@ ROOMS = {
     "front_gate": Room(
         "front_gate",
         "Front Gate",
-        "A wrought-iron gate bars the final ascent. The bars are chained, but the old lock still looks serviceable.",
+        "You stand before the observatory's outer gate, where twisted iron spears rise higher than a man's head. A chain has been looped through the bars and drawn tight. The old lock is furred with salt, but the keeper who closed it expected it might one day be opened again.",
         exits={"west": "cliff_path", "east": "courtyard"},
         features={
             "gate": "The gate is chained shut. A lock plate sits beneath a scab of salt.",
@@ -114,7 +114,7 @@ ROOMS = {
     "courtyard": Room(
         "courtyard",
         "Courtyard",
-        "Rainwater glitters in the cracked courtyard tiles. A dry fountain crouches at the center, and three doors lead into the observatory proper.",
+        "Within the gate lies a broad stone courtyard open to the storm. Rainwater pools in the cracks between worn tiles and runs in silver threads toward a dry fountain at the center. Arched doors open north and south, while the dark gate waits to the west.",
         exits={"west": "front_gate", "north": "foyer", "south": "conservatory"},
         features={
             "fountain": "The basin is dry except for rain. Something metallic sits where a spout should be.",
@@ -124,7 +124,7 @@ ROOMS = {
     "foyer": Room(
         "foyer",
         "Foyer",
-        "The foyer smells of dust, cold brass, and the mineral bite of old storms. Portraits of keepers line the walls with the patient expression of people who knew how long a night can be.",
+        "The great foyer is close and still after the violence outside. Your footsteps echo off marble and old wood. Portraits of former keepers line the walls, their severe faces half-lost in dust, each painted with lamp, chart, or sextant in hand as though expecting inspection at any moment.",
         exits={"south": "courtyard", "west": "west_hall", "east": "east_hall"},
         features={
             "portraits": "Generations of keepers hold lanterns, charts, and impossible levels of composure.",
@@ -134,7 +134,7 @@ ROOMS = {
     "west_hall": Room(
         "west_hall",
         "West Hall",
-        "A long hall bends around the observatory's western wall. Wind presses at the tall windows and the lamps sway faintly though they are unlit.",
+        "This curving hall follows the western wall of the observatory. Tall windows shudder in their frames whenever the gale rises. The lamps are dark, yet they swing almost imperceptibly, stirred by drafts from cracks too small to see.",
         exits={"east": "foyer", "north": "library", "south": "workshop"},
         features={
             "windows": "Beyond the wet glass, the sea heaves under a low slate sky.",
@@ -144,7 +144,7 @@ ROOMS = {
     "east_hall": Room(
         "east_hall",
         "East Hall",
-        "This side of the observatory feels more industrial. Cable conduits run along the ceiling toward the station's inner machinery.",
+        "The eastern passage is less gracious and more mechanical. Riveted panels, conduit trunks, and junction boxes crowd the stonework. Everything here was built to serve the hidden engines of the observatory rather than its people.",
         exits={"west": "foyer", "north": "archive", "south": "pump_room", "east": "lift_landing"},
         features={
             "archive door": "A steel archive door with a four-symbol wheel lock. The lock expects a sequence, not a key.",
@@ -154,7 +154,7 @@ ROOMS = {
     "library": Room(
         "library",
         "Library",
-        "Shelves crowd the circular library from floor to ceiling. Salt has curled the chart edges, but the room still feels inhabited by careful thought.",
+        "Shelves climb the circular walls from floor to ceiling, burdened with atlases, weather journals, and boxed ephemerides. Salt has curled the edges of many charts, yet the room keeps the hush of long study, as if someone has only just stepped away from the reading table.",
         exits={"south": "west_hall"},
         features={
             "shelves": "Astronomical atlases and weather ledgers lean against each other in exhausted ranks.",
@@ -164,7 +164,7 @@ ROOMS = {
     "workshop": Room(
         "workshop",
         "Workshop",
-        "Benches line the workshop under a haze of filings and old grease. Half-repaired clockwork and storm lanterns wait exactly where they were abandoned.",
+        "The workshop smells of oil, filings, and scorched wick. Benches stand crowded with clockwork assemblies, brass housings, and lantern parts laid down in the middle of repair and never touched again. It is the sort of room where difficult machines were bullied into obedience by practical hands.",
         exits={"north": "west_hall", "east": "generator_room"},
         features={
             "bench": "The main bench is scarred by decades of improvised repairs.",
@@ -174,7 +174,7 @@ ROOMS = {
     "generator_room": Room(
         "generator_room",
         "Generator Room",
-        "Copper coils and flywheels fill the chamber. Water stains ring the lower walls, and the station's emergency dynamo sits silent behind a maintenance panel.",
+        "Copper windings, flywheels, and cast housings fill the room so completely that the walls seem built around them. Water stains band the lower stone like old tide marks. At the center rests the emergency dynamo, mute and cold behind an open maintenance panel.",
         exits={"west": "workshop"},
         features={
             "generator": "The emergency dynamo needs a fuse before it can safely carry current.",
@@ -185,7 +185,7 @@ ROOMS = {
     "pump_room": Room(
         "pump_room",
         "Pump Room",
-        "A drain cistern and a rusted spindle occupy most of the pump room. Somewhere beneath the floor, seawater gurgles through stone channels.",
+        "The air here is wet and mineral. A squat pump housing rises beside a drainage cistern black with old damp. Somewhere below the floor, trapped seawater mutters through channels cut into the rock itself.",
         exits={"north": "east_hall"},
         features={
             "spindle": "A square valve spindle protrudes from the pump housing, naked without its wheel.",
@@ -195,7 +195,7 @@ ROOMS = {
     "conservatory": Room(
         "conservatory",
         "Conservatory",
-        "Glass ribs arch overhead, blurred by algae and salt. Night-blooming vines have escaped their trellises and wrapped around brass irrigation frames.",
+        "The conservatory lies under a ribbed roof of storm-blind glass. Once it must have been green and bright; now it is all damp leaves, pale blossoms, and brass trellises gone green with neglect. Vines have crawled over everything, claiming irrigation frames and benches alike.",
         exits={"north": "courtyard"},
         features={
             "plants": "The keepers cultivated symbolic plants here, each bed labeled with a station constellation.",
@@ -206,7 +206,7 @@ ROOMS = {
     "archive": Room(
         "archive",
         "Archive",
-        "The archive is a climate-tight vault of steel drawers, lacquered cases, and carefully catalogued instruments. Someone rushed here before the evacuation and left in a hurry.",
+        "The archive is a sealed vault of lacquered cases, steel drawers, and catalogued instruments arranged with almost military exactness. Yet the order was broken at the end. Several drawers stand open, and one work table still bears the signs of hurried, unfinished selection.",
         exits={"south": "east_hall"},
         features={
             "cases": "Most cases stand open and empty, but one padded case still waits on the central table.",
@@ -216,7 +216,7 @@ ROOMS = {
     "lift_landing": Room(
         "lift_landing",
         "Lift Landing",
-        "A cage lift stands behind a lattice gate, all brass ribs and riveted glass. The carriage hangs ready, but the call slot is dark.",
+        "A brass cage lift waits here behind a folding lattice gate. Its carriage hangs in the shaft like a lantern gone dark, all riveted glass and metal ribs. The call slot is dead, and the whole mechanism carries the stiff silence of something long unrun.",
         exits={"west": "east_hall", "north": "dome_antechamber"},
         features={
             "lift": "The observatory lift needs station power, a transit token, and a touch of mechanical mercy.",
@@ -226,7 +226,7 @@ ROOMS = {
     "dome_antechamber": Room(
         "dome_antechamber",
         "Dome Antechamber",
-        "The air is colder here. An arched corridor curves around the base of the great dome, where brass plaques record eclipses, comets, and ships saved by the signal light.",
+        "The temperature drops the instant you step out of the lift. This narrow annular corridor circles the base of the great dome. Brass plaques set into the walls commemorate eclipses observed, storms survived, and ships guided to safety by the signal above.",
         exits={"south": "lift_landing", "north": "orrery_dome"},
         features={
             "plaques": "The plaques credit no single keeper. The station endured because people left each other instructions.",
@@ -236,7 +236,7 @@ ROOMS = {
     "orrery_dome": Room(
         "orrery_dome",
         "Orrery Dome",
-        "The main dome opens above an immense brass orrery whose tracks lead upward into the beacon lens housing. Three alignment levers surround a silver socket where something vital is missing.",
+        "You have reached the heart of Asterfall. Beneath the vast black bowl of the dome stands the great orrery, a forest of brass arms, toothed rings, and polished tracks climbing toward the beacon housing overhead. Around its base stand three numbered alignment levers and, at the center, a silver socket left painfully empty.",
         exits={"south": "dome_antechamber"},
         features={
             "orrery": "The mechanism can still move. It only lacks the lens and the proper final alignment.",
@@ -247,7 +247,7 @@ ROOMS = {
     "sea_cave": Room(
         "sea_cave",
         "Sea Cave",
-        "A narrow cave opens beneath the cliff, safe only at this stage of the tide. The walls glitter with mica and discarded offerings left by superstitious keepers.",
+        "A narrow cave opens under the cliff where the tide has withdrawn for the moment. The walls glitter faintly with mica and wet salt. In a dry niche above the waterline, generations of keepers have left small superstitious offerings against shipwreck and bad weather.",
         exits={"north": "cliff_path"},
         features={
             "offerings": "Buttons, shells, and candle wax cluster in a dry niche above the tide line.",
@@ -257,10 +257,11 @@ ROOMS = {
     "keepers_quarters": Room(
         "keepers_quarters",
         "Keeper's Quarters",
-        "A hidden room tucked behind the moon painting. The chamber holds a narrow cot, a tea service, and shelves of private notebooks that never entered the official archive.",
+        "This hidden chamber was never meant for visitors. A narrow cot stands against the wall beside a small spirit lamp and a tea service turned brown with age. Shelves of private notebooks fill the rest of the room: the unofficial memory of the observatory, preserved behind a painted secret.",
         exits={"east": "west_hall"},
         features={
             "cot": "The blankets are folded with military precision.",
+            "tea service": "A tarnished tray holds a pot, a cup, and the ring left by something metal set there in haste.",
             "notebooks": "The notebooks are practical, affectionate, and full of unofficial fixes for official problems.",
         },
     ),
@@ -295,9 +296,12 @@ def build_variation(seed: int) -> dict:
 
 def intro_text(state) -> str:
     return (
-        "Asterfall Observatory has been dark for nine nights.\n"
-        "The relief ship should already be visible offshore, but the storm has swallowed the horizon and the station's signal beacon remains dead.\n"
-        "You have one chance to climb inside, restore the Dawn Signal, and give the coast something brighter than lightning to steer by.\n\n"
+        "ASTerfall Observatory\n"
+        "\n"
+        "For nine nights the Dawn Signal has been dark.\n"
+        "The relief steamer was due yesterday, but the storm has swallowed sea and sky alike, and no captain alive will risk this coast without the old light atop the headland.\n"
+        "So you have come alone through wind, rain, and surf to wake a station that ought to have died with the century.\n"
+        "If the machinery below the dome can be coaxed back to life, the beacon may yet burn before the rocks claim another hull.\n\n"
         f"Run seed: {state.seed}\n"
         f"{state.variation['intro_line']}"
     )

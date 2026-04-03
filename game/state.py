@@ -5,6 +5,13 @@ from dataclasses import dataclass, field
 from game.content import ITEMS, NPCS, ROOMS, build_variation
 
 
+KEY_DISCOVERY_RULES = {
+    "cliff_path": ("examine observatory",),
+    "front_gate": ("examine gate", "examine lock", "examine chain"),
+    "sea_cave": ("examine offerings", "examine wall"),
+}
+
+
 def canonical(text: str) -> str:
     return " ".join(text.lower().split())
 
@@ -62,6 +69,7 @@ class GameState:
         if "match_tin" not in state.room_items[variation["reward_room"]]:
             state.room_items[variation["reward_room"]].append("match_tin")
         state.clue_texts = build_clue_texts(variation)
+        validate_starting_key_access(state)
         return state
 
     def to_dict(self) -> dict:
@@ -147,3 +155,16 @@ def reveal_hidden_item(state: GameState, room_id: str, item_id: str) -> None:
     if item_id in hidden:
         hidden.remove(item_id)
         state.room_items.setdefault(room_id, []).append(item_id)
+
+
+def validate_starting_key_access(state: GameState) -> None:
+    key_room = state.variation["key_room"]
+    accessible_rooms = {"cliff_path", "front_gate", "sea_cave"}
+    if key_room not in accessible_rooms:
+        raise ValueError(f"Groundskeeper key placed in inaccessible room: {key_room}")
+    hidden = state.hidden_items.get(key_room, [])
+    room_items = state.room_items.get(key_room, [])
+    if "groundskeeper_key" not in hidden and "groundskeeper_key" not in room_items:
+        raise ValueError(f"Groundskeeper key missing from designated room: {key_room}")
+    if key_room not in KEY_DISCOVERY_RULES:
+        raise ValueError(f"No discovery rules defined for groundskeeper key room: {key_room}")

@@ -2,6 +2,8 @@
 
 Asterfall Observatory is a local, terminal-based parser adventure written in Python 3. You climb into a storm-dark coastal signal station, explore its abandoned machinery and private rooms, solve interconnected puzzles, and restore the Dawn Signal before the weather closes in.
 
+The game is fully text-only in a normal terminal. It does not rely on external libraries, GUI features, or terminal animation effects.
+
 ## Repo Overview
 
 The project is organized as a small, expandable Python game rather than a single script:
@@ -9,6 +11,7 @@ The project is organized as a small, expandable Python game rather than a single
 - `main.py`: entry point for launching the game
 - `game/parser.py`: parser normalization and command parsing
 - `game/engine.py`: command handling, room flow, interaction logic, and win-state handling
+- `game/map.py`: authored ASCII map rendering for explored areas
 - `game/state.py`: runtime game state and world initialization
 - `game/content.py`: authored rooms, items, NPCs, and replay variability
 - `game/persistence.py`: save/load support
@@ -70,6 +73,8 @@ The parser supports classic text adventure commands, including:
 The parser is forgiving about capitalization, punctuation, filler words such as `the` and `to`, and several common verb or noun synonyms.
 
 The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
+
+Seed-variable critical-path items are always clued in-world with both room-level hints and examinable reveals, so randomized runs remain fair and solvable without changing the puzzle structure.
 
 ## Saves
 

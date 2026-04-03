@@ -1,5 +1,6 @@
 from game.engine import Game
 from game.persistence import load_game, resolve_save_path, save_game
+from game.state import validate_starting_key_access
 
 
 def _to_room(game: Game, room_id: str) -> None:
@@ -98,7 +99,7 @@ def test_lever_hint_nudges_special_syntax():
 def test_take_error_suggests_look():
     game = Game(seed=4517)
     text = game.process("take token")
-    assert "look" in text
+    assert text == "You can't take that."
 
 
 def test_map_shows_current_room_and_adjacent_unknowns():
@@ -119,3 +120,49 @@ def test_map_shows_blocked_and_opened_known_connections():
     game.state.flags["front_gate_unlocked"] = True
     opened = game.process("map")
     assert "---" in opened
+
+
+def test_unlocking_gate_is_stable_on_repeat():
+    game = Game(seed=4517)
+    _to_room(game, "front_gate")
+    game.state.inventory.append("groundskeeper_key")
+    assert game.process("unlock gate") == "The key turns after a gritty pause. The chain loosens and the front gate stands open."
+    assert game.process("unlock gate") == "It is already unlocked."
+
+
+def test_key_is_accessible_across_many_seeds():
+    for seed in range(7300, 7400):
+        game = Game(seed=seed)
+        validate_starting_key_access(game.state)
+        key_room = game.state.variation["key_room"]
+        game.state.current_room = key_room
+        game.state.discovered_rooms.add(key_room)
+        room_text = game.process("look")
+        if key_room == "cliff_path":
+            assert "metallic glint" in room_text or "small metal glint" in room_text
+            text = game.process("examine observatory")
+        elif key_room == "front_gate":
+            assert "catches the light" in room_text
+            text = game.process("examine chain")
+        else:
+            assert "reflects more sharply" in room_text
+            text = game.process("examine offerings")
+        assert "groundskeeper key" in text
+        assert game.process("take groundskeeper key") == "You take the groundskeeper key."
+
+
+def test_transit_token_has_hint_reveal_and_is_takable_across_many_seeds():
+    for seed in range(7300, 7400):
+        game = Game(seed=seed)
+        token_room = game.state.variation["token_room"]
+        game.state.current_room = token_room
+        game.state.discovered_rooms.add(token_room)
+        room_text = game.process("look")
+        if token_room == "archive":
+            assert "dull brass circle" in room_text
+            text = game.process("examine cases")
+        else:
+            assert "small brass glimmer" in room_text
+            text = game.process("examine tea service")
+        assert "transit token" in text
+        assert game.process("take token") == "You take the transit token."

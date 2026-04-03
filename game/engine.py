@@ -114,7 +114,9 @@ FEATURE_ALIASES = {
     },
     "keepers_quarters": {
         "bed": "cot",
-        "tea": "cot",
+        "tea": "tea service",
+        "tray": "tea service",
+        "service": "tea service",
         "journals": "notebooks",
     },
 }
@@ -155,6 +157,9 @@ class Game:
         state_note = self.room_state_note()
         if state_note:
             lines.append(state_note)
+        hidden_note = self.hidden_item_hint()
+        if hidden_note:
+            lines.append(hidden_note)
         room_items = current_room_items(self.state)
         if room_items:
             lines.append("You notice here: " + ", ".join(ITEMS[item_id].name for item_id in room_items) + ".")
@@ -207,6 +212,23 @@ class Game:
             return "The mechanism has changed: " + "; ".join(notes) + "."
         return None
 
+    def hidden_item_hint(self) -> str | None:
+        hidden = self.state.hidden_items.get(self.state.current_room, [])
+        if "groundskeeper_key" in hidden:
+            if self.state.current_room == "cliff_path":
+                return "Lightning picks out a brief metallic glint somewhere near the edge of the path."
+            if self.state.current_room == "front_gate":
+                return "Something small catches the light within the gate's ironwork."
+            if self.state.current_room == "sea_cave":
+                return "Among the offerings, one hard shape reflects more sharply than shell or wax."
+        room_items = current_room_items(self.state)
+        if "transit_token" in room_items:
+            if self.state.current_room == "archive":
+                return "On the central table, a dull brass circle interrupts the ordered grey of cases and papers."
+            if self.state.current_room == "keepers_quarters":
+                return "A small brass glimmer rests among the private comforts of the room."
+        return None
+
     def resolve_feature(self, target: str) -> str | None:
         room = ROOMS[self.state.current_room]
         if target in room.features:
@@ -255,7 +277,7 @@ class Game:
         if not handler:
             if self.state.current_room == "orrery_dome" and text.lower().strip().startswith(("set ", "align ", "position ")):
                 return self.set_levers_hint()
-            return "You can try, but the observatory does not understand that verb."
+            return "I don't understand that."
         return handler(command)
 
     def do_look(self, _: Command) -> str:
@@ -292,23 +314,30 @@ class Game:
                 return "The painting has swung aside to reveal the hidden keeper's quarters."
             return "Behind the frame, the wall sounds hollow."
 
-        return "Nothing in particular answers to that description. " + self.unknown_target_hint()
+        return "You see nothing special."
 
     def examine_feature(self, target: str) -> str:
         room_id = self.state.current_room
         room = ROOMS[room_id]
-        if room_id == "front_gate" and target == "gate" and "groundskeeper_key" in self.state.hidden_items.get("front_gate", []):
+        if room_id == "front_gate" and target in {"gate", "chain"} and "groundskeeper_key" in self.state.hidden_items.get("front_gate", []):
             reveal_hidden_item(self.state, "front_gate", "groundskeeper_key")
-            return room.features[target] + " The lock and hinge assembly are rusted but intact. Something has snagged behind the hinge: a groundskeeper key."
+            feature_text = room.features[target]
+            return feature_text + " The ironwork groans in the wind. Caught in the links near one hinge is a groundskeeper key."
         if room_id == "cliff_path" and target == "observatory" and "groundskeeper_key" in self.state.hidden_items.get("cliff_path", []):
             reveal_hidden_item(self.state, "cliff_path", "groundskeeper_key")
-            return room.features[target] + " The front gate lock might still answer to a proper key. A key glints from a crack in the stone at the path edge."
+            return room.features[target] + " Even from here the front gate lock looks intact. At the edge of the path a small metal glint catches the lightning: a groundskeeper key."
         if room_id == "sea_cave" and target in {"offerings", "wall"} and "groundskeeper_key" in self.state.hidden_items.get("sea_cave", []):
             reveal_hidden_item(self.state, "sea_cave", "groundskeeper_key")
-            return room.features[target] + " Behind the wax drippings lies a groundskeeper key."
+            return room.features[target] + " Behind a crust of wax and shells lies a groundskeeper key left among the offerings."
+        if room_id == "archive" and target == "cases" and "transit_token" in current_room_items(self.state):
+            return room.features[target] + " One open padded case holds a transit token, its brass face stamped DOME LIFT."
+        if room_id == "keepers_quarters" and target == "tea service" and "transit_token" in current_room_items(self.state):
+            return room.features[target] + " Beside the cup sits a transit token, as if set down during an interrupted meal."
+        if room_id == "keepers_quarters" and target == "notebooks" and "transit_token" in current_room_items(self.state):
+            return room.features[target] + " A transit token has been tucked beside the shelf, close to hand."
         if room_id == "conservatory" and target in {"plants", "shutters"} and "winding_key" in self.state.hidden_items.get("conservatory", []):
             reveal_hidden_item(self.state, "conservatory", "winding_key")
-            return room.features[target] + " One vine has wrapped around something rigid. Tangled in the stems is a brass winding key."
+            return room.features[target] + " One tough vine has wrapped itself around something metallic. Tangled in the stems is a brass winding key."
         if room_id == "front_gate" and target == "gate":
             if self.state.flags["front_gate_unlocked"]:
                 return "The gate stands open now, chain loose and lock defeated. You can go east into the courtyard."
@@ -359,20 +388,20 @@ class Game:
         room = ROOMS[self.state.current_room]
         direction = command.target
         if direction not in room.exits:
-            return "No useful path leads that way. Try one of the listed exits."
+            return "You can't go that way."
         destination = room.exits[direction]
 
         if self.state.current_room == "front_gate" and direction == "east" and not self.state.flags["front_gate_unlocked"]:
-            return "The gate remains chained shut. You will need to unlock it first."
+            return "The gate is locked."
         if self.state.current_room == "east_hall" and direction == "north" and not self.state.flags["archive_unlocked"]:
-            return "The archive door is still sealed by its wheel lock. Examine the door for the sort of input it expects."
+            return "The archive door is shut."
         if self.state.current_room == "workshop" and direction == "east" and not self.state.flags["pump_drained"]:
-            return "Water still seeps under the generator-room door. Better drain it first from the pump room."
+            return "The way is flooded."
         if self.state.current_room == "lift_landing" and direction == "north":
             if not self.state.flags["power_on"]:
-                return "Without power, the lift will not budge. The observatory still needs its generator running."
+                return "The lift has no power."
             if not self.state.flags["lift_oiled"]:
-                return "The lift shudders and jams. It needs oil on its guide gears before it can climb."
+                return "The lift jams."
             if "transit_token" not in self.state.inventory:
                 return "The call slot flashes amber. The lift requires a transit token."
             return self.move_to(destination) + "\nThe lift carries you upward with the solemn patience of old machinery."
@@ -389,7 +418,7 @@ class Game:
             return "Take what?"
         item_id = find_item_id(command.target, current_room_items(self.state))
         if not item_id:
-            return "You cannot take that from here. Try 'look' to check what is visible."
+            return "You can't take that."
         self.state.room_items[self.state.current_room].remove(item_id)
         self.state.inventory.append(item_id)
         return f"You take the {ITEMS[item_id].name}."
@@ -399,7 +428,7 @@ class Game:
             return "Drop what?"
         item_id = find_item_id(command.target, self.state.inventory)
         if not item_id:
-            return "You are not carrying that. Try 'inventory' to review what you have."
+            return "You aren't carrying that."
         self.state.inventory.remove(item_id)
         self.state.room_items.setdefault(self.state.current_room, []).append(item_id)
         return f"You set down the {ITEMS[item_id].name}."
@@ -408,63 +437,76 @@ class Game:
         if not command.tool and command.target:
             tool_id = find_item_id(command.target, self.state.inventory)
             if not tool_id:
-                return "You are not carrying that. Try 'inventory' to review what you have."
+                return "You aren't carrying that."
             return self.use_item(tool_id, None)
         if not command.tool:
-            return "Use what? Try 'use <item>' or 'use <item> on <target>'."
+            return "Use what?"
         tool_id = find_item_id(command.tool, self.state.inventory)
         if not tool_id:
-            return "You are not carrying that. Try 'inventory' to review what you have."
+            return "You aren't carrying that."
         return self.use_item(tool_id, command.target)
 
     def use_item(self, item_id: str, target: str | None) -> str:
         room_id = self.state.current_room
 
         if item_id == "groundskeeper_key" and room_id == "front_gate" and target in {None, "gate", "lock", "front gate"}:
-            self.state.flags["front_gate_unlocked"] = True
-            return "The key turns after a gritty pause. The chain loosens and the front gate stands open."
+            if not self.state.flags["front_gate_unlocked"]:
+                self.state.flags["front_gate_unlocked"] = True
+                return "The key turns after a gritty pause. The chain loosens and the front gate stands open."
+            return "It is already unlocked."
         if item_id == "handwheel" and room_id == "pump_room" and target in {"spindle", "valve", "pump", None}:
-            self.state.flags["pump_drained"] = True
-            return "You fit the handwheel to the spindle and crank until the cistern roars awake. Somewhere nearby, trapped water drains away from the generator room."
+            if not self.state.flags["pump_drained"]:
+                self.state.flags["pump_drained"] = True
+                return "You fit the handwheel to the spindle and crank until the cistern roars awake. Somewhere nearby, trapped water drains away from the generator room."
+            return "The pump is already running."
         if item_id == "fuse" and room_id == "generator_room" and target in {"panel", "generator", "slot", None}:
-            self.state.flags["power_on"] = True
-            if item_id in self.state.inventory:
-                self.state.inventory.remove(item_id)
-            return "You seat the ceramic fuse in the open panel. The dynamo coughs, then the observatory wakes one circuit at a time with a bass electric hum."
+            if not self.state.flags["power_on"]:
+                self.state.flags["power_on"] = True
+                if item_id in self.state.inventory:
+                    self.state.inventory.remove(item_id)
+                return "You seat the ceramic fuse in the open panel. The dynamo coughs, then the observatory wakes one circuit at a time with a bass electric hum."
+            return "The power is already on."
         if item_id == "oil_flask" and room_id == "lift_landing" and target in {"lift", "gears", "gate", None}:
             self.state.flags["lift_oiled"] = True
             return "A few drops of clockwork oil into the exposed guide gears are enough. The lift answers with a smoother, less resentful click."
         if item_id == "winding_key" and room_id == "conservatory" and target in {"wren", "automaton", "caretaker", None}:
-            self.state.flags["wren_awake"] = True
-            return "You wind the brass key into the automaton's spring housing. Wren straightens, blinks twice, and whispers, 'Signal first. Questions after.'"
+            if not self.state.flags["wren_awake"]:
+                self.state.flags["wren_awake"] = True
+                return "You wind the brass key into the automaton's spring housing. Wren straightens, blinks twice, and whispers, 'Signal first. Questions after.'"
+            return "Wren is already awake."
         if item_id == "star_lens" and room_id == "orrery_dome" and target in {"socket", "orrery", "machine", None}:
-            self.state.flags["lens_installed"] = True
-            return "The star lens settles into the silver socket with a resonant chime. Pale threads of light wake along the orrery tracks."
+            if not self.state.flags["lens_installed"]:
+                self.state.flags["lens_installed"] = True
+                return "The star lens settles into the silver socket with a resonant chime. Pale threads of light wake along the orrery tracks."
+            return "The lens is already in place."
         if item_id == "match_tin" and room_id == "west_hall" and target in {"painting", "moon painting"}:
-            self.state.flags["secret_door_open"] = True
-            return "By matchlight you spot a latch hidden in the painting frame. The panel swings inward, revealing the keeper's quarters."
+            if not self.state.flags["secret_door_open"]:
+                self.state.flags["secret_door_open"] = True
+                return "By matchlight you spot a latch hidden in the painting frame. The panel swings inward, revealing the keeper's quarters."
+            return "The panel is already open."
 
         if room_id == "orrery_dome" and item_id == "star_lens":
             return "The star lens belongs in the socket at the center of the orrery."
         if room_id == "lift_landing" and item_id == "oil_flask":
             return "The oil needs to go on the lift itself, especially the guide gears."
-        return "Nothing useful happens. Try examining the target more closely for a usable noun."
+        return "Nothing happens."
 
     def do_open(self, command: Command) -> str:
         if not command.target:
             return "Open what?"
         if self.state.current_room == "west_hall" and command.target in {"painting", "moon painting"}:
             if self.state.flags["secret_door_open"] or self.state.flags["wren_awake"]:
-                self.state.flags["secret_door_open"] = True
+                if not self.state.flags["secret_door_open"]:
+                    self.state.flags["secret_door_open"] = True
                 self.state.current_room = "keepers_quarters"
                 self.state.discovered_rooms.add("keepers_quarters")
                 return self.describe_room()
-            return "The painting will not budge. There must be a concealed release in the frame."
+            return "It won't open."
         if self.state.current_room == "front_gate" and command.target in {"gate", "front gate"}:
             if self.state.flags["front_gate_unlocked"]:
                 return "The gate stands ready. You can go east into the courtyard."
             return "The chain and lock still hold it shut."
-        return "It does not open. Try examining it for a lock, panel, or other mechanism."
+        return "It won't open."
 
     def do_unlock(self, command: Command) -> str:
         if not command.target:
@@ -475,18 +517,18 @@ class Game:
             return self.use_item("groundskeeper_key", "gate")
         if command.target in {"archive", "archive door", "door"} and self.state.current_room == "east_hall":
             return "The archive lock wants a four-word sequence. Use 'enter <code>'."
-        return "You see no obvious way to unlock that. Try examining it for a lock, code wheel, or mechanism."
+        return "You can't unlock that."
 
     def do_enter(self, command: Command) -> str:
         if self.state.current_room != "east_hall":
-            return "There is nowhere here to enter a code."
+            return "Nothing happens."
         if not command.target:
             return "Enter what code?"
         words = command.target.split()
         if words == self.state.variation["archive_code"]:
             self.state.flags["archive_unlocked"] = True
             return "The wheel lock clicks through four perfect stops. The archive door unseals to the north."
-        return "The lock emits a flat, disappointed clunk. Wrong sequence. The answer should be four words in order."
+        return "The lock clicks and rejects the sequence."
 
     def do_inventory(self, _: Command) -> str:
         if not self.state.inventory:
@@ -504,9 +546,9 @@ class Game:
             return "Talk to whom?"
         npc_id = find_npc_id(command.target, visible_npcs(self.state, self.state.current_room))
         if not npc_id:
-            return "No one here answers to that."
+            return "No answer."
         if npc_id == "wren" and not self.state.flags["wren_awake"]:
-            return "Wren says nothing. A winding keyhole waits at the back of its neck."
+            return "Wren is still and silent."
 
         if not self.state.flags["power_on"]:
             return "Wren says, 'Drain the lower channels. Fit the spare fuse. The station remembers how to wake.'"

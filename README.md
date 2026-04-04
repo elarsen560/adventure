@@ -64,6 +64,8 @@ To launch the desktop wrapper:
 python3 desktop.py
 ```
 
+The desktop wrapper opens to a simple startup screen with the opening premise text, theme music, and a reserved title-image pane. Selecting `Start Game` switches into the live parser interface without replaying the full intro text.
+
 To start a specific reproducible run:
 
 ```bash
@@ -106,6 +108,7 @@ Recommended workflow:
 
 - use targeted runs while iterating on one subsystem
 - for audio-manager-only work, prefer a narrow `tests/test_audio.py::...` target because the full audio test file intentionally includes one real asset-generation test
+- for desktop-wrapper work, prefer `python3 -m pytest tests/test_tk_app.py`
 - run the full suite before commit/push
 - prefer the full suite after changes that touch multiple systems, persistence, or core engine flow
 
@@ -149,7 +152,7 @@ The parser is forgiving about capitalization, punctuation, filler words such as 
 
 Use `help` for the compact command list and `instructions` for a short spoiler-free explanation of how the game is meant to be played, including what `map`, `note`, `talk`, and `ask` are for.
 
-The desktop wrapper preserves the same parser behavior while presenting a scrollable transcript, a single-line command entry, a live ASCII map panel, a live inventory panel, and a reserved visual panel for future room images. Basic Up/Down command history is also available in the desktop command field.
+The desktop wrapper preserves the same parser behavior while presenting a startup screen, then a scrollable transcript, a single-line command entry, a live ASCII map panel, a live inventory panel, and a reserved visual panel for future room images. Basic Up/Down command history is also available in the desktop command field.
 
 The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
 
@@ -171,6 +174,8 @@ The initial audio pass adds three layers:
 - a short generated win jingle for the post-victory state
 
 Audio is intentionally lightweight and never affects gameplay logic. If audio initialization fails, `pygame` is missing, or assets are unavailable, the game continues normally in silence.
+
+In the desktop wrapper, the title/start screen plays the main theme only. Ambient and SFX begin once gameplay starts. Desktop mode intentionally skips the post-victory jingle in v1 to keep the UI handoff simple.
 
 Each run also includes one seeded mid-game environmental hazard in a valid authored room. Hazards are foreshadowed in-room, can be resolved through ordinary observation, and are meant to add tension without changing the underlying puzzle structure.
 

@@ -39,26 +39,66 @@ class DesktopGameSession:
         self.audio = audio_manager or DesktopAudioManager(
             AudioConfig.from_runtime(mute=args.mute, preset=args.audio_preset)
         )
+        self._gameplay_ambient_enabled = self.audio.config.ambient_enabled
+        self._gameplay_sfx_enabled = self.audio.config.sfx_enabled
+        self.audio.config.ambient_enabled = False
+        self.audio.config.sfx_enabled = False
         self.audio.initialize()
         self.game: Game | None = None
-        self.new_game(args.seed)
+        self.gameplay_started = False
+        self.new_game(args.seed, gameplay_started=False)
+        self.start_title_audio()
 
     def shutdown(self) -> None:
         self.audio.shutdown()
 
-    def new_game(self, seed: int | None) -> list[str]:
+    def new_game(self, seed: int | None, *, gameplay_started: bool) -> list[str]:
         self.game = Game(seed=seed, debug=self.args.debug, audio_manager=self.audio)
-        self.audio.start_session(self.game.state)
-        return self.startup_lines()
+        self.gameplay_started = gameplay_started
+        if gameplay_started:
+            self.enable_gameplay_audio()
+            return self.gameplay_opening_lines()
+        return self.title_screen_lines()
 
-    def startup_lines(self) -> list[str]:
+    def title_screen_lines(self) -> list[str]:
+        assert self.game is not None
+        return [self.title_screen_text()]
+
+    def title_screen_text(self) -> str:
+        assert self.game is not None
+        return intro_text(self.game.state).split("\n\nRun seed:", 1)[0]
+
+    def gameplay_opening_lines(self) -> list[str]:
         assert self.game is not None
         return [
-            intro_text(self.game.state),
+            f"Run seed: {self.game.state.seed}\n{self.game.state.variation['intro_line']}",
             self.game.describe_room(),
             "Type 'help' for commands or 'instructions' for play guidance.",
             self.audio.status_line(),
         ]
+
+    def start_title_audio(self) -> None:
+        if not self.audio.available:
+            return
+        self.audio.reset_session_audio()
+        self.audio.play_music("main_theme")
+
+    def enable_gameplay_audio(self) -> None:
+        self.audio.config.ambient_enabled = self._gameplay_ambient_enabled
+        self.audio.config.sfx_enabled = self._gameplay_sfx_enabled
+        if self.audio.available:
+            self.audio._apply_volumes()
+            self.audio.play_music("main_theme")
+            if self.game is not None:
+                self.audio.update_for_state(self.game.state)
+
+    def begin_gameplay(self) -> list[str]:
+        if self.gameplay_started:
+            return []
+        assert self.game is not None
+        self.gameplay_started = True
+        self.enable_gameplay_audio()
+        return self.gameplay_opening_lines()
 
     def handle_command(self, raw: str) -> DesktopCommandResult:
         assert self.game is not None
@@ -75,7 +115,7 @@ class DesktopGameSession:
                     should_close=True,
                 )
             if normalized == "restart":
-                lines = [f"> {text}", *self.new_game(None)]
+                lines = [f"> {text}", *self.new_game(None, gameplay_started=True)]
                 return DesktopCommandResult(lines, reset_transcript=True)
             return DesktopCommandResult([f"> {text}", POST_WIN_PROMPT])
 
@@ -125,10 +165,78 @@ class AsterfallDesktopApp:
         self.root.configure(bg="#111317")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        self._build_layout()
-        self.append_lines(self.session.startup_lines())
-        self.refresh_side_panels()
-        self.entry.focus_set()
+        self.game_frame: tk.Frame | None = None
+        self.startup_frame: tk.Frame | None = None
+        self.transcript = None
+        self.entry = None
+        self.visual_panel = None
+        self.map_panel = None
+        self.inventory_panel = None
+
+        self._build_startup_layout()
+
+    def _build_startup_layout(self) -> None:
+        self.startup_frame = tk.Frame(self.root, bg="#111317", padx=18, pady=18)
+        self.startup_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
+        self.startup_frame.grid_columnconfigure(0, weight=1)
+        self.startup_frame.grid_rowconfigure(0, weight=1)
+        self.startup_frame.grid_rowconfigure(1, weight=1)
+
+        mono = tkfont.nametofont("TkFixedFont").copy()
+        mono.configure(size=12)
+        title_font = tkfont.nametofont("TkFixedFont").copy()
+        title_font.configure(size=14)
+
+        visual = tk.Frame(self.startup_frame, bg="#1a1f26", bd=1, relief="flat")
+        visual.grid(row=0, column=0, sticky="nsew", pady=(0, 12))
+        visual.grid_rowconfigure(0, weight=1)
+        visual.grid_columnconfigure(0, weight=1)
+
+        visual_label = tk.Label(
+            visual,
+            text="Asterfall Observatory\n\nCover plate reserved for a future title image.",
+            bg="#141920",
+            fg="#dcd5c4",
+            font=title_font,
+            justify="center",
+        )
+        visual_label.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+        text_frame = tk.Frame(self.startup_frame, bg="#1a1f26", bd=1, relief="flat")
+        text_frame.grid(row=1, column=0, sticky="nsew")
+        text_frame.grid_rowconfigure(0, weight=1)
+        text_frame.grid_columnconfigure(0, weight=1)
+
+        intro_pane = tk.Text(
+            text_frame,
+            wrap="word",
+            font=mono,
+            bg="#171b21",
+            fg="#e2dccf",
+            relief="flat",
+            padx=18,
+            pady=18,
+            height=12,
+        )
+        intro_pane.grid(row=0, column=0, sticky="nsew")
+        intro_pane.insert("1.0", self.session.title_screen_text())
+        intro_pane.configure(state="disabled")
+
+        start_button = tk.Button(
+            text_frame,
+            text="Start Game",
+            command=self.start_game,
+            font=mono,
+            bg="#2b3340",
+            fg="#f0eadc",
+            activebackground="#394454",
+            activeforeground="#f0eadc",
+            relief="flat",
+            padx=18,
+            pady=8,
+        )
+        start_button.grid(row=1, column=0, sticky="e", padx=12, pady=(0, 12))
+        self.root.bind("<Return>", self.start_game)
 
     def _build_layout(self) -> None:
         self.root.grid_columnconfigure(0, weight=4)
@@ -140,12 +248,18 @@ class AsterfallDesktopApp:
         small_mono = tkfont.nametofont("TkFixedFont").copy()
         small_mono.configure(size=11)
 
-        left = tk.Frame(self.root, bg="#111317", padx=12, pady=12)
+        self.game_frame = tk.Frame(self.root, bg="#111317")
+        self.game_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
+        self.game_frame.grid_columnconfigure(0, weight=4)
+        self.game_frame.grid_columnconfigure(1, weight=2)
+        self.game_frame.grid_rowconfigure(0, weight=1)
+
+        left = tk.Frame(self.game_frame, bg="#111317", padx=12, pady=12)
         left.grid(row=0, column=0, sticky="nsew")
         left.grid_rowconfigure(0, weight=1)
         left.grid_columnconfigure(0, weight=1)
 
-        right = tk.Frame(self.root, bg="#111317", padx=12, pady=12)
+        right = tk.Frame(self.game_frame, bg="#111317", padx=12, pady=12)
         right.grid(row=0, column=1, sticky="nsew", padx=(0, 12))
         right.grid_rowconfigure(0, weight=2)
         right.grid_rowconfigure(1, weight=2)
@@ -190,6 +304,17 @@ class AsterfallDesktopApp:
         self.map_panel = self._make_panel(right, "Observatory Map", row=1, font=small_mono)
         self.inventory_panel = self._make_panel(right, "Inventory", row=2, font=small_mono)
 
+    def start_game(self, _event=None):
+        self.root.unbind("<Return>")
+        if self.startup_frame is not None:
+            self.startup_frame.destroy()
+            self.startup_frame = None
+        self._build_layout()
+        self.append_lines(self.session.begin_gameplay())
+        self.refresh_side_panels()
+        self.entry.focus_set()
+        return "break"
+
     def _make_panel(self, parent: tk.Frame, title: str, row: int, *, font) -> tk.Text:
         frame = tk.Frame(parent, bg="#1a1f26", bd=1, relief="flat")
         frame.grid(row=row, column=0, sticky="nsew", pady=(0, 10 if row < 2 else 0))
@@ -218,6 +343,7 @@ class AsterfallDesktopApp:
     def append_lines(self, lines: list[str]) -> None:
         if not lines:
             return
+        assert self.transcript is not None
         self.transcript.configure(state="normal")
         for line in lines:
             if self.transcript.index("end-1c") != "1.0":
@@ -227,6 +353,7 @@ class AsterfallDesktopApp:
         self.transcript.see("end")
 
     def clear_transcript(self) -> None:
+        assert self.transcript is not None
         self.transcript.configure(state="normal")
         self.transcript.delete("1.0", "end")
         self.transcript.configure(state="disabled")
@@ -238,11 +365,15 @@ class AsterfallDesktopApp:
         widget.configure(state="disabled")
 
     def refresh_side_panels(self) -> None:
+        assert self.map_panel is not None
+        assert self.inventory_panel is not None
+        assert self.visual_panel is not None
         self.set_panel_text(self.map_panel, self.session.map_text())
         self.set_panel_text(self.inventory_panel, self.session.inventory_text())
         self.set_panel_text(self.visual_panel, self.session.visual_text())
 
     def on_submit(self, _event=None):
+        assert self.entry is not None
         raw = self.entry.get()
         self.entry.delete(0, "end")
         self.history_index = None

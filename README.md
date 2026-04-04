@@ -1,16 +1,18 @@
 # Asterfall Observatory
 
-Asterfall Observatory is a local, terminal-based parser adventure written in Python 3. You climb into a storm-dark coastal signal station, explore its abandoned machinery and private rooms, solve interconnected puzzles, and restore the Dawn Signal before the weather closes in.
+Asterfall Observatory is a local parser adventure written in Python 3. You climb into a storm-dark coastal signal station, explore its abandoned machinery and private rooms, solve interconnected puzzles, and restore the Dawn Signal before the weather closes in.
 
-The game is fully text-only in a normal terminal. It does not rely on external libraries, GUI features, or terminal animation effects.
+The game can be played either in a normal terminal or through a small Tkinter desktop wrapper. Both modes keep the same parser-driven play, content, progression, and game state.
 
 ## Repo Overview
 
 The project is organized as a small, expandable Python game rather than a single script:
 
 - `main.py`: entry point for launching the game
+- `desktop.py`: separate entry point for launching the Tkinter desktop wrapper
 - `game/parser.py`: parser normalization and command parsing
 - `game/engine.py`: command handling, room flow, interaction logic, and win-state handling
+- `game/tk_app.py`: thin Tkinter desktop presentation layer built on top of the existing game engine
 - `game/audio.py`: optional mixer-backed audio manager and room/state audio routing
 - `game/audio_assets.py`: generated placeholder music, ambient, and sound-effect asset creation
 - `game/ambient.py`: deterministic atmospheric ambient-text selection
@@ -56,6 +58,12 @@ You can keep environment settings in a local `.env` file. The companion currentl
 python3 main.py
 ```
 
+To launch the desktop wrapper:
+
+```bash
+python3 desktop.py
+```
+
 To start a specific reproducible run:
 
 ```bash
@@ -67,6 +75,8 @@ To launch in debug mode for testing:
 ```bash
 python3 main.py --debug
 python3 main.py 4517 --debug
+python3 desktop.py --debug
+python3 desktop.py 4517 --debug
 ```
 
 To start muted or with a softer mix:
@@ -74,6 +84,8 @@ To start muted or with a softer mix:
 ```bash
 python3 main.py --mute
 python3 main.py --audio-preset low
+python3 desktop.py --mute
+python3 desktop.py --audio-preset low
 ```
 
 ## Run Tests
@@ -136,6 +148,8 @@ When debug mode is enabled, these extra commands are also available:
 The parser is forgiving about capitalization, punctuation, filler words such as `the` and `to`, and several common verb or noun synonyms.
 
 Use `help` for the compact command list and `instructions` for a short spoiler-free explanation of how the game is meant to be played, including what `map`, `note`, `talk`, and `ask` are for.
+
+The desktop wrapper preserves the same parser behavior while presenting a scrollable transcript, a single-line command entry, a live ASCII map panel, a live inventory panel, and a reserved visual panel for future room images. Basic Up/Down command history is also available in the desktop command field.
 
 The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
 

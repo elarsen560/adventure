@@ -4,6 +4,7 @@ import random
 import sys
 from pathlib import Path
 
+from game.audio import AudioConfig, AudioManager
 from game.companion import FALLBACK_MESSAGE, build_companion_context, build_companion_prompt, companion_available, request_companion_response
 from game.content import ITEMS, NPCS, ROOMS, intro_text, parse_args
 from game.ambient import select_ambient_line, should_emit_ambient
@@ -185,12 +186,22 @@ rooms"""
 
 
 class Game:
-    def __init__(self, seed: int | None = None, debug: bool = False):
+    def __init__(self, seed: int | None = None, debug: bool = False, audio_manager: AudioManager | None = None):
         self.state = GameState.new(seed if seed is not None else random.randint(1000, 9999))
         self.state.debug_mode = debug
+        self.audio = audio_manager
 
     def set_state(self, state: GameState) -> None:
         self.state = state
+        self.sync_audio()
+
+    def sync_audio(self) -> None:
+        if self.audio:
+            self.audio.update_for_state(self.state)
+
+    def play_sfx(self, name: str) -> None:
+        if self.audio:
+            self.audio.play_sfx(name)
 
     def npc_entity(self, npc_id: str):
         return NPCS.get(npc_id) or featured_npc_entity(npc_id)
@@ -376,6 +387,7 @@ class Game:
                 return self.set_levers_hint()
             return "I don't understand that."
         response = handler(command)
+        self.sync_audio()
         self.record_history(command.raw or command.action, response)
         self.state.turn_count += 1
         ambient = None
@@ -530,6 +542,8 @@ class Game:
             hazard_response = self.trigger_hazard_if_needed(action="go", direction=direction)
             if hazard_response:
                 return hazard_response
+            self.play_sfx("lift_token")
+            self.play_sfx("lift_travel")
             return self.move_to(destination) + "\nThe lift carries you upward with the solemn patience of old machinery."
 
         hazard_response = self.trigger_hazard_if_needed(action="go", direction=direction)
@@ -552,6 +566,7 @@ class Game:
                     return hazard_response
                 self.state.room_items[self.state.current_room].remove(item_id)
                 self.state.inventory.append(item_id)
+                self.play_sfx("pickup")
                 return f"You take the {ITEMS[item_id].name}."
             return "Take what?"
         item_id = find_item_id(command.target, current_room_items(self.state))
@@ -569,6 +584,7 @@ class Game:
             return hazard_response
         self.state.room_items[self.state.current_room].remove(item_id)
         self.state.inventory.append(item_id)
+        self.play_sfx("pickup")
         return f"You take the {ITEMS[item_id].name}."
 
     def do_drop(self, command: Command) -> str:
@@ -613,11 +629,13 @@ class Game:
         if item_id == "groundskeeper_key" and room_id == "front_gate" and target in {None, "gate", "lock", "front gate"}:
             if not self.state.flags["front_gate_unlocked"]:
                 self.state.flags["front_gate_unlocked"] = True
+                self.play_sfx("gate_unlock")
                 return "The key turns after a gritty pause. The chain loosens and the front gate stands open."
             return "It is already unlocked."
         if item_id == "handwheel" and room_id == "pump_room" and target in {"spindle", "valve", "pump", None}:
             if not self.state.flags["pump_drained"]:
                 self.state.flags["pump_drained"] = True
+                self.play_sfx("handwheel_crank")
                 return "You fit the handwheel to the spindle and crank until the cistern roars awake. Somewhere nearby, trapped water drains away from the generator room."
             return "The pump is already running."
         if item_id == "fuse" and room_id == "generator_room" and target in {"panel", "generator", "slot", None}:
@@ -625,10 +643,13 @@ class Game:
                 self.state.flags["power_on"] = True
                 if item_id in self.state.inventory:
                     self.state.inventory.remove(item_id)
+                self.play_sfx("fuse_insert")
+                self.play_sfx("power_restore")
                 return "You seat the ceramic fuse in the open panel. The dynamo coughs, then the observatory wakes one circuit at a time with a bass electric hum."
             return "The power is already on."
         if item_id == "oil_flask" and room_id == "lift_landing" and target in {"lift", "gears", "gate", None}:
             self.state.flags["lift_oiled"] = True
+            self.play_sfx("lift_lubricate")
             return "A few drops of clockwork oil into the exposed guide gears are enough. The lift answers with a smoother, less resentful click."
         if item_id == "winding_key" and room_id == "conservatory" and target in {"wren", "automaton", "caretaker", None}:
             if not self.state.flags["wren_awake"]:
@@ -638,6 +659,7 @@ class Game:
         if item_id == "star_lens" and room_id == "orrery_dome" and target in {"socket", "orrery", "machine", None}:
             if not self.state.flags["lens_installed"]:
                 self.state.flags["lens_installed"] = True
+                self.play_sfx("lens_seat")
                 return "The star lens settles into the silver socket with a resonant chime. Pale threads of light wake along the orrery tracks."
             return "The lens is already in place."
         if item_id == "match_tin" and room_id == "west_hall" and target in {"painting", "moon painting"}:
@@ -728,7 +750,9 @@ class Game:
         words = command.target.split()
         if words == self.state.variation["archive_code"]:
             self.state.flags["archive_unlocked"] = True
+            self.play_sfx("door_unseal")
             return "The wheel lock clicks through four perfect stops. The archive door unseals to the north."
+        self.play_sfx("failure_click")
         return "The lock clicks and rejects the sequence."
 
     def do_inventory(self, _: Command) -> str:
@@ -1033,6 +1057,7 @@ class Game:
         except FileNotFoundError:
             requested = path or "the default save file"
             return f"Could not find {requested}."
+        self.sync_audio()
         return "Game loaded.\n" + self.describe_room()
 
     def do_quit(self, _: Command) -> str:
@@ -1055,6 +1080,8 @@ class Game:
         self.state.flags["signal_lit"] = True
         self.state.won = True
         self.state.running = False
+        self.play_sfx("dawn_signal")
+        self.sync_audio()
         return (
             "The three levers fall into their final positions. The orrery gathers itself, light threads through the star lens, and the Dawn Signal erupts upward through the dome in a column of gold-white fire.\n"
             "Far out beyond the storm, a ship answers with a single horn blast.\n\n"
@@ -1064,22 +1091,29 @@ class Game:
 
 def run_game() -> None:
     args = parse_args(sys.argv[1:])
-    game = Game(seed=args.seed, debug=args.debug)
-    print(intro_text(game.state))
-    print(game.describe_room())
-    print("\nType 'help' for commands.")
-    while game.state.running:
-        try:
-            raw = input("\n> ")
-        except EOFError:
-            print("\nThe signal can wait no longer.")
-            break
-        victory = game.try_victory(raw)
-        if victory:
-            print(victory)
-            break
-        response = game.process(raw)
-        print(response)
+    audio = AudioManager(AudioConfig.from_runtime(mute=args.mute, preset=args.audio_preset))
+    audio.initialize()
+    game = Game(seed=args.seed, debug=args.debug, audio_manager=audio)
+    try:
+        audio.start_session(game.state)
+        print(intro_text(game.state))
+        print(game.describe_room())
+        print("\nType 'help' for commands.")
+        print(audio.status_line())
+        while game.state.running:
+            try:
+                raw = input("\n> ")
+            except EOFError:
+                print("\nThe signal can wait no longer.")
+                break
+            victory = game.try_victory(raw)
+            if victory:
+                print(victory)
+                break
+            response = game.process(raw)
+            print(response)
+    finally:
+        audio.shutdown()
 
 
 def save_exists(path: str | None = None) -> bool:

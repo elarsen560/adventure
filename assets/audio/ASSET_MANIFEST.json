@@ -1,0 +1,45 @@
+{
+  "generated": true,
+  "generator": "game/audio_assets.py",
+  "music": [
+    "main_theme"
+  ],
+  "ambient": [
+    "archive",
+    "cliff_path",
+    "conservatory",
+    "courtyard",
+    "dome_antechamber",
+    "east_hall",
+    "foyer",
+    "front_gate",
+    "generator_room_idle",
+    "generator_room_powered",
+    "keepers_quarters",
+    "library",
+    "lift_landing_idle",
+    "lift_landing_powered",
+    "orrery_dome_energized",
+    "orrery_dome_idle",
+    "pump_room_active",
+    "pump_room_idle",
+    "sea_cave",
+    "west_hall",
+    "workshop"
+  ],
+  "sfx": [
+    "dawn_signal",
+    "door_unseal",
+    "failure_click",
+    "fuse_insert",
+    "gate_unlock",
+    "handwheel_crank",
+    "lens_seat",
+    "lift_lubricate",
+    "lift_token",
+    "lift_travel",
+    "pickup",
+    "power_restore"
+  ],
+  "license": "Generated locally for this project; no third-party audio sources used in this initial pass."
+}

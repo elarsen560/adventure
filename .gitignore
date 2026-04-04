@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 saves/
 .env
+.DS_Store
+assets/audio/source_downloads/

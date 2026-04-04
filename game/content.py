@@ -369,4 +369,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Play Asterfall Observatory.")
     parser.add_argument("seed", nargs="?", type=int, help="Optional seed for a reproducible run.")
     parser.add_argument("--debug", action="store_true", help="Enable debug-only testing commands.")
+    parser.add_argument("--mute", action="store_true", help="Start with audio disabled.")
+    parser.add_argument("--audio-preset", choices=("normal", "low"), default="normal", help="Set initial audio mix preset.")
     return parser.parse_args(argv)

@@ -231,6 +231,7 @@ The downloaded originals are retained here for provenance and future re-editing:
 ## Still Generated
 
 - `assets/audio/music/main_theme.wav`
+- `assets/audio/music/win_jingle.wav`
 - all one-shot sound effects under `assets/audio/sfx/`
 
 The machine-readable manifest is [ASSET_MANIFEST.json](/Users/sondehealth/Desktop/projects/adventure/assets/audio/ASSET_MANIFEST.json).

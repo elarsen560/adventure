@@ -28,16 +28,61 @@ def _call_test(func) -> None:
         func(**kwargs)
 
 
+def _resolve_targets(argv: list[str]) -> dict[Path, set[str] | None]:
+    root = Path.cwd()
+    tests_root = root / "tests"
+    all_files = sorted(tests_root.glob("test_*.py"))
+    file_map = {path.resolve(): path for path in all_files}
+    by_name = {path.name: path for path in all_files}
+    selected: dict[Path, set[str] | None] = {}
+
+    if not argv:
+        return {path: None for path in all_files}
+
+    def mark(path: Path, test_name: str | None) -> None:
+        existing = selected.get(path)
+        if existing is None:
+            if path not in selected:
+                selected[path] = None if test_name is None else {test_name}
+            return
+        if test_name is None:
+            selected[path] = None
+        else:
+            existing.add(test_name)
+
+    for raw in argv:
+        file_part, _, test_part = raw.partition("::")
+        candidate = Path(file_part)
+        resolved = (root / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
+        path = None
+        if resolved in file_map:
+            path = file_map[resolved]
+        elif candidate.name in by_name:
+            path = by_name[candidate.name]
+        else:
+            matches = [test_path for test_path in all_files if file_part in str(test_path)]
+            if len(matches) == 1:
+                path = matches[0]
+        if path is None:
+            raise SystemExit(f"Unknown test target: {raw}")
+        mark(path, test_part or None)
+
+    return selected
+
+
 def main() -> int:
-    root = Path.cwd() / "tests"
-    test_files = sorted(root.glob("test_*.py"))
+    targets = _resolve_targets(sys.argv[1:])
+    test_files = sorted(targets)
     total = 0
     failures: list[tuple[str, BaseException]] = []
 
     for path in test_files:
         module = _load_module(path)
+        wanted = targets[path]
         for name, func in inspect.getmembers(module, inspect.isfunction):
             if not name.startswith("test_"):
+                continue
+            if wanted is not None and name not in wanted:
                 continue
             total += 1
             try:

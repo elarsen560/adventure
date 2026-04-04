@@ -87,3 +87,8 @@ def test_unchain_alias_maps_to_unlock():
     command = parse_command("unchain gate")
     assert command.action == "unlock"
     assert command.target == "gate"
+
+
+def test_instructions_alias_maps_to_instructions():
+    command = parse_command("readme")
+    assert command.action == "instructions"

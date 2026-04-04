@@ -41,6 +41,27 @@ class FakeChannel:
 class FakePygame:
     class mixer:
         class music:
+            loaded = []
+            played = []
+            faded = []
+            stopped = 0
+
+            @classmethod
+            def load(cls, path):
+                cls.loaded.append(path)
+
+            @classmethod
+            def play(cls, loops=0):
+                cls.played.append(loops)
+
+            @classmethod
+            def fadeout(cls, ms):
+                cls.faded.append(ms)
+
+            @classmethod
+            def stop(cls):
+                cls.stopped += 1
+
             @staticmethod
             def set_volume(value):
                 return None
@@ -48,6 +69,26 @@ class FakePygame:
         @staticmethod
         def Sound(path):
             return path
+
+
+def _stub_audio_paths(tmp_path):
+    root = tmp_path / "audio"
+    ambient = root / "ambient"
+    music = root / "music"
+    sfx = root / "sfx"
+    for directory in (ambient, music, sfx):
+        directory.mkdir(parents=True, exist_ok=True)
+    for name in ("cliff_path", "sea_cave"):
+        (ambient / f"{name}.wav").write_bytes(b"stub")
+    (music / "win_jingle.wav").write_bytes(b"stub")
+    return {
+        "music": {"win_jingle": music / "win_jingle.wav"},
+        "ambient": {
+            "cliff_path": ambient / "cliff_path.wav",
+            "sea_cave": ambient / "sea_cave.wav",
+        },
+        "sfx": {},
+    }
 
 
 def test_audio_manager_falls_back_when_pygame_import_fails():
@@ -107,7 +148,7 @@ def test_game_plays_power_restore_sfx_when_fuse_is_used():
 
 def test_audio_manager_crossfades_between_ambient_channels(tmp_path):
     manager = AudioManager(AudioConfig(root=tmp_path / "audio"))
-    manager.paths = ensure_audio_assets(tmp_path / "audio")
+    manager.paths = _stub_audio_paths(tmp_path)
     manager.available = True
     manager.config.ambient_enabled = True
     manager._pygame = FakePygame()
@@ -130,3 +171,26 @@ def test_audio_manager_crossfades_between_ambient_channels(tmp_path):
     assert ("stop",) in channel_b.calls
     assert any(call[0] == "play" and call[2:] == (-1, CROSSFADE_MS) for call in channel_b.calls)
     assert ("fadeout", CROSSFADE_MS) in channel_a.calls
+
+
+def test_audio_manager_victory_jingle_fades_out_existing_audio(tmp_path):
+    FakePygame.mixer.music.loaded = []
+    FakePygame.mixer.music.played = []
+    FakePygame.mixer.music.faded = []
+    FakePygame.mixer.music.stopped = 0
+    manager = AudioManager(AudioConfig(root=tmp_path / "audio"))
+    manager.paths = _stub_audio_paths(tmp_path)
+    manager.available = True
+    manager.config.music_enabled = True
+    manager._pygame = FakePygame()
+    channel_a = FakeChannel()
+    channel_b = FakeChannel()
+    manager._ambient_channels = [channel_a, channel_b]
+
+    with patch("game.audio.time.sleep", return_value=None):
+        manager.play_victory_jingle()
+
+    assert any(call[0] == "fadeout" for call in channel_a.calls)
+    assert any(call[0] == "fadeout" for call in channel_b.calls)
+    assert FakePygame.mixer.music.loaded[-1].endswith("win_jingle.wav")
+    assert FakePygame.mixer.music.played[-1] == 0

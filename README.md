@@ -23,7 +23,7 @@ The project is organized as a small, expandable Python game rather than a single
 - `game/state.py`: runtime game state and world initialization
 - `game/content.py`: authored rooms, items, NPCs, and replay variability
 - `game/persistence.py`: save/load support
-- `assets/audio/`: generated placeholder audio assets and manifests
+- `assets/audio/`: runtime-ready audio assets and manifests
 - `tools/generate_audio_assets.py`: regenerate the placeholder audio set
 - `tests/`: parser and gameplay regression tests
 - `pytest.py`: small local test runner shim so `python3 -m pytest` works without external dependencies
@@ -82,6 +82,21 @@ python3 main.py --audio-preset low
 python3 -m pytest
 ```
 
+The local test runner also supports targeted runs:
+
+```bash
+python3 -m pytest tests/test_parser.py
+python3 -m pytest tests/test_audio.py
+python3 -m pytest tests/test_audio.py::test_audio_manager_crossfades_between_ambient_channels
+```
+
+Recommended workflow:
+
+- use targeted runs while iterating on one subsystem
+- for audio-manager-only work, prefer a narrow `tests/test_audio.py::...` target because the full audio test file intentionally includes one real asset-generation test
+- run the full suite before commit/push
+- prefer the full suite after changes that touch multiple systems, persistence, or core engine flow
+
 ## Command Format
 
 The parser supports classic text adventure commands, including:
@@ -106,6 +121,7 @@ The parser supports classic text adventure commands, including:
 - `inventory` or `i`
 - `talk <character> [message]`
 - `help`
+- `instructions`
 - `save` or `save <filename>`
 - `load` or `load <filename>`
 - `quit`
@@ -118,6 +134,8 @@ When debug mode is enabled, these extra commands are also available:
 - `rooms`
 
 The parser is forgiving about capitalization, punctuation, filler words such as `the` and `to`, and several common verb or noun synonyms.
+
+Use `help` for the compact command list and `instructions` for a short spoiler-free explanation of how the game is meant to be played, including what `map`, `note`, `talk`, and `ask` are for.
 
 The `map` command prints a spoiler-conscious ASCII layout showing your current room, visited rooms, nearby unexplored rooms, and known passages without fully revealing the observatory from the start.
 
@@ -136,6 +154,7 @@ The initial audio pass adds three layers:
 - looping theme music
 - room and state-aware ambient loops
 - a small set of one-shot sound effects for important actions
+- a short generated win jingle for the post-victory state
 
 Audio is intentionally lightweight and never affects gameplay logic. If audio initialization fails, `pygame` is missing, or assets are unavailable, the game continues normally in silence.
 
@@ -156,6 +175,7 @@ The audio system is handled by [game/audio.py](/Users/sondehealth/Desktop/projec
 Included layers:
 
 - `music/main_theme.wav`: looping background theme
+- `music/win_jingle.wav`: short post-victory jingle
 - `ambient/`: room and state-aware ambient loops
 - `sfx/`: one-shot feedback for important actions and state changes
 
@@ -175,7 +195,7 @@ python3 tools/generate_audio_assets.py
 
 Asset provenance:
 
-- The background theme and one-shot SFX are still locally generated.
+- The background theme, post-victory win jingle, and one-shot SFX are still locally generated.
 - The room ambient layer is now largely sourced, edited, and level-matched from clearly licensed OpenGameArt and Pixabay material.
 - Downloaded source media is not required to run the game and is kept out of version control; the repo only needs the runtime-ready `.wav` assets plus the manifests.
 - The machine-readable manifest is [assets/audio/ASSET_MANIFEST.json](/Users/sondehealth/Desktop/projects/adventure/assets/audio/ASSET_MANIFEST.json).

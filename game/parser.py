@@ -48,6 +48,10 @@ VERB_ALIASES = {
     "i": "inventory",
     "m": "map",
     "?": "help",
+    "instructions": "instructions",
+    "instruction": "instructions",
+    "readme": "instructions",
+    "info": "instructions",
     "exit": "quit",
 }
 
@@ -118,7 +122,7 @@ def parse_command(text: str) -> Command:
     if verb == "go" and rest and rest[0] in DIRECTION_ALIASES:
         rest[0] = DIRECTION_ALIASES[rest[0]]
 
-    if verb in {"save", "load", "enter", "map", "notes"}:
+    if verb in {"save", "load", "enter", "map", "notes", "instructions"}:
         target = " ".join(rest) if rest else None
         return Command(verb, target=target, raw=text)
 

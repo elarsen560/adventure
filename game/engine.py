@@ -179,6 +179,15 @@ load [filename]
 quit
 set levers <a> <b> <c>"""
 
+INSTRUCTIONS_TEXT = """Instructions:
+Explore by looking closely, examining specific things, and moving room to room. Plain language is usually enough; this game favors clear nouns over obscure verbs.
+
+Use map to review explored ground without spoiling the full observatory, and note / notes to keep your own records. Talk to visible characters directly with talk <character> [message].
+
+Ask is a constrained companion, not an oracle. It only reflects what you have already seen, carried, noted, or heard, and it will not reveal hidden facts or solve the game for you.
+
+Save and load are always available. Help shows the compact command list."""
+
 DEBUG_HELP_TEXT = """Debug commands:
 goto <room>
 full map
@@ -202,6 +211,10 @@ class Game:
     def play_sfx(self, name: str) -> None:
         if self.audio:
             self.audio.play_sfx(name)
+
+    def play_victory_jingle(self) -> None:
+        if self.audio:
+            self.audio.play_victory_jingle()
 
     def npc_entity(self, npc_id: str):
         return NPCS.get(npc_id) or featured_npc_entity(npc_id)
@@ -375,6 +388,7 @@ class Game:
             "full_map": self.do_full_map,
             "rooms": self.do_rooms,
             "help": self.do_help,
+            "instructions": self.do_instructions,
             "talk": self.do_talk,
             "save": self.do_save,
             "load": self.do_load,
@@ -794,6 +808,9 @@ class Game:
             return HELP_TEXT + "\n" + DEBUG_HELP_TEXT
         return HELP_TEXT
 
+    def do_instructions(self, _: Command) -> str:
+        return INSTRUCTIONS_TEXT
+
     def do_map(self, _: Command) -> str:
         return render_map(self.state)
 
@@ -1079,9 +1096,8 @@ class Game:
             return "The mechanism turns a fraction, then halts. The star lens still needs to be installed."
         self.state.flags["signal_lit"] = True
         self.state.won = True
-        self.state.running = False
         self.play_sfx("dawn_signal")
-        self.sync_audio()
+        self.play_victory_jingle()
         return (
             "The three levers fall into their final positions. The orrery gathers itself, light threads through the star lens, and the Dawn Signal erupts upward through the dome in a column of gold-white fire.\n"
             "Far out beyond the storm, a ship answers with a single horn blast.\n\n"
@@ -1093,12 +1109,17 @@ def run_game() -> None:
     args = parse_args(sys.argv[1:])
     audio = AudioManager(AudioConfig.from_runtime(mute=args.mute, preset=args.audio_preset))
     audio.initialize()
-    game = Game(seed=args.seed, debug=args.debug, audio_manager=audio)
-    try:
+
+    def new_game(seed: int | None) -> Game:
+        game = Game(seed=seed, debug=args.debug, audio_manager=audio)
         audio.start_session(game.state)
+        return game
+
+    game = new_game(args.seed)
+    try:
         print(intro_text(game.state))
         print(game.describe_room())
-        print("\nType 'help' for commands.")
+        print("\nType 'help' for commands or 'instructions' for play guidance.")
         print(audio.status_line())
         while game.state.running:
             try:
@@ -1106,10 +1127,25 @@ def run_game() -> None:
             except EOFError:
                 print("\nThe signal can wait no longer.")
                 break
+            if game.state.won:
+                normalized = " ".join(raw.lower().split())
+                if normalized == "quit":
+                    print(game.do_quit(Command("quit", raw=raw)))
+                    break
+                if normalized == "restart":
+                    game = new_game(None)
+                    print()
+                    print(intro_text(game.state))
+                    print(game.describe_room())
+                    print("\nType 'help' for commands or 'instructions' for play guidance.")
+                    continue
+                print("Enter 'quit' to exit the observatory or 'restart' to begin a new run.")
+                continue
             victory = game.try_victory(raw)
             if victory:
                 print(victory)
-                break
+                print("\nEnter 'quit' to exit the observatory or 'restart' to begin a new run.")
+                continue
             response = game.process(raw)
             print(response)
     finally:

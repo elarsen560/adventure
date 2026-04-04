@@ -100,6 +100,22 @@ def test_full_playthrough_reaches_victory():
     result = game.try_victory(expected)
     assert result is not None
     assert game.state.won is True
+    assert game.state.running is True
+
+
+def test_restart_uses_fresh_game_state():
+    game = Game(seed=4517)
+    game.process("note Remember the archive code")
+    game.state.flags["power_on"] = True
+
+    restarted = Game(debug=game.state.debug_mode)
+
+    assert restarted.state.seed != game.state.seed
+    assert restarted.state.notes == []
+    assert restarted.state.recent_history == []
+    assert restarted.state.npc_history == []
+    assert restarted.state.flags["power_on"] is False
+    assert restarted.state.discovered_rooms == {"cliff_path"}
 
 
 def test_feature_synonym_guides_archive_command():
@@ -161,6 +177,14 @@ def test_reading_notes_lists_entries():
     game.process("note First clue")
     game.process("note Second clue")
     assert game.process("notes") == "Notebook:\n1. First clue\n2. Second clue"
+
+
+def test_instructions_explain_key_features_without_spoilers():
+    game = Game(seed=4517)
+    text = game.process("instructions")
+    assert "Explore by looking closely" in text
+    assert "map" in text
+    assert "Ask is a constrained companion" in text
 
 
 def test_note_aliases_work():

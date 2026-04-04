@@ -2,7 +2,8 @@
   "generated": true,
   "generator": "game/audio_assets.py",
   "music": [
-    "main_theme"
+    "main_theme",
+    "win_jingle"
   ],
   "ambient": [
     "archive",

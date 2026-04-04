@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import importlib
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from game.audio_assets import ensure_audio_assets
 
 
-CROSSFADE_MS = 1000
+CROSSFADE_MS = 2000
+VICTORY_FADE_MS = 700
 
 
 def _env_enabled(name: str, default: bool = True) -> bool:
@@ -88,8 +90,24 @@ class AudioManager:
     def start_session(self, state) -> None:
         if not self.available:
             return
+        self.reset_session_audio()
         self.play_music("main_theme")
         self.update_for_state(state)
+
+    def reset_session_audio(self) -> None:
+        if not self.available or self._pygame is None:
+            return
+        try:
+            self._pygame.mixer.music.stop()
+            for channel in self._ambient_channels:
+                channel.stop()
+            if self._sfx_channel is not None:
+                self._sfx_channel.stop()
+        except Exception:
+            pass
+        self.current_music = None
+        self.current_ambient = None
+        self._active_ambient_index = None
 
     def update_for_state(self, state) -> None:
         if not self.available:
@@ -160,6 +178,30 @@ class AudioManager:
             self._sfx_channel.play(sound)
         except Exception:
             pass
+
+    def play_victory_jingle(self) -> None:
+        if not self.available or self._pygame is None:
+            return
+        try:
+            for channel in self._ambient_channels:
+                channel.fadeout(VICTORY_FADE_MS)
+            if self.config.music_enabled:
+                self._pygame.mixer.music.fadeout(VICTORY_FADE_MS)
+                time.sleep(VICTORY_FADE_MS / 1000)
+                path = self.paths.get("music", {}).get("win_jingle")
+                if path and path.exists():
+                    self._pygame.mixer.music.load(str(path))
+                    self._pygame.mixer.music.play()
+                    self.current_music = "win_jingle"
+                else:
+                    self.current_music = None
+            else:
+                self.current_music = None
+            self.current_ambient = None
+            self._active_ambient_index = None
+        except Exception:
+            self.failed = True
+            self.available = False
 
     def status_line(self) -> str:
         if not self.config.enabled:

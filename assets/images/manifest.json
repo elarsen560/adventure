@@ -1,0 +1,26 @@
+{
+  "style_target": "Retro early-1990s DOS/VGA adventure-game background art with restrained pixelation and a limited-but-rich palette.",
+  "startup": {
+    "cover_image": null,
+    "prompt_source": "assets/images/prompts/startup_cover_candidates.md"
+  },
+  "rooms": {
+    "cliff_path": null,
+    "front_gate": null,
+    "courtyard": null,
+    "foyer": null,
+    "west_hall": null,
+    "east_hall": null,
+    "library": null,
+    "workshop": null,
+    "generator_room": null,
+    "pump_room": null,
+    "conservatory": null,
+    "archive": null,
+    "lift_landing": null,
+    "dome_antechamber": null,
+    "orrery_dome": null,
+    "sea_cave": null,
+    "keepers_quarters": null
+  }
+}

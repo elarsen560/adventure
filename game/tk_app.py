@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from dataclasses import dataclass
+from pathlib import Path
 from tkinter import font as tkfont
 from tkinter import scrolledtext
 
@@ -13,12 +15,31 @@ from game.parser import parse_command
 
 
 POST_WIN_PROMPT = "Enter 'quit' to exit the observatory or 'restart' to begin a new run."
+STARTUP_COVER = Path("assets/images/startup/cover_v1.png")
+ROOM_IMAGE_DIR = Path("assets/images/rooms")
 
 
 def centered_geometry(screen_width: int, screen_height: int, width: int, height: int) -> str:
     x = max(0, (screen_width - width) // 2)
     y = max(0, (screen_height - height) // 2)
     return f"{width}x{height}+{x}+{y}"
+
+
+def startup_cover_path() -> Path | None:
+    return STARTUP_COVER if STARTUP_COVER.exists() else None
+
+
+def room_image_path(room_id: str) -> Path | None:
+    path = ROOM_IMAGE_DIR / f"{room_id}.png"
+    return path if path.exists() else None
+
+
+def subsample_factor(width: int, height: int, max_width: int, max_height: int) -> int:
+    if max_width <= 0 or max_height <= 0:
+        return 1
+    width_ratio = width / max_width
+    height_ratio = height / max_height
+    return max(1, math.ceil(max(width_ratio, height_ratio)))
 
 
 class DesktopAudioManager(AudioManager):
@@ -167,8 +188,14 @@ class AsterfallDesktopApp:
 
         self.game_frame: tk.Frame | None = None
         self.startup_frame: tk.Frame | None = None
+        self.startup_visual_frame = None
+        self.startup_visual_label = None
+        self.startup_cover_image = None
         self.transcript = None
         self.entry = None
+        self.visual_frame = None
+        self.visual_label = None
+        self.room_visual_image = None
         self.visual_panel = None
         self.map_panel = None
         self.inventory_panel = None
@@ -187,20 +214,20 @@ class AsterfallDesktopApp:
         title_font = tkfont.nametofont("TkFixedFont").copy()
         title_font.configure(size=14)
 
-        visual = tk.Frame(self.startup_frame, bg="#1a1f26", bd=1, relief="flat")
-        visual.grid(row=0, column=0, sticky="nsew", pady=(0, 12))
-        visual.grid_rowconfigure(0, weight=1)
-        visual.grid_columnconfigure(0, weight=1)
+        self.startup_visual_frame = tk.Frame(self.startup_frame, bg="#1a1f26", bd=1, relief="flat")
+        self.startup_visual_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 12))
+        self.startup_visual_frame.grid_rowconfigure(0, weight=1)
+        self.startup_visual_frame.grid_columnconfigure(0, weight=1)
 
-        visual_label = tk.Label(
-            visual,
+        self.startup_visual_label = tk.Label(
+            self.startup_visual_frame,
             text="Asterfall Observatory\n\nCover plate reserved for a future title image.",
             bg="#141920",
             fg="#dcd5c4",
             font=title_font,
             justify="center",
         )
-        visual_label.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.startup_visual_label.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         text_frame = tk.Frame(self.startup_frame, bg="#1a1f26", bd=1, relief="flat")
         text_frame.grid(row=1, column=0, sticky="nsew")
@@ -236,10 +263,45 @@ class AsterfallDesktopApp:
             pady=8,
         )
         start_button.grid(row=1, column=0, sticky="e", padx=12, pady=(0, 12))
+        self.root.after(10, self.update_startup_visual)
+        self.root.bind("<Configure>", self.on_root_configure)
         self.root.bind("<Return>", self.start_game)
 
+    def update_startup_visual(self) -> None:
+        if self.startup_visual_label is None or self.startup_visual_frame is None:
+            return
+        path = startup_cover_path()
+        if path is None:
+            self.startup_visual_label.configure(
+                image="",
+                text="Asterfall Observatory\n\nCover plate reserved for a future title image.",
+            )
+            self.startup_cover_image = None
+            return
+        try:
+            image = tk.PhotoImage(file=str(path))
+            max_width = max(720, self.startup_visual_frame.winfo_width() - 24)
+            max_height = max(360, self.startup_visual_frame.winfo_height() - 24)
+            factor = subsample_factor(image.width(), image.height(), max_width, max_height)
+            if factor > 1:
+                image = image.subsample(factor, factor)
+            self.startup_cover_image = image
+            self.startup_visual_label.configure(image=image, text="")
+        except tk.TclError:
+            self.startup_visual_label.configure(
+                image="",
+                text="Asterfall Observatory\n\nCover image could not be loaded.",
+            )
+            self.startup_cover_image = None
+
+    def on_root_configure(self, _event=None) -> None:
+        if self.startup_frame is not None:
+            self.update_startup_visual()
+        if self.game_frame is not None:
+            self.update_room_visual()
+
     def _build_layout(self) -> None:
-        self.root.grid_columnconfigure(0, weight=4)
+        self.root.grid_columnconfigure(0, weight=3)
         self.root.grid_columnconfigure(1, weight=2)
         self.root.grid_rowconfigure(0, weight=1)
 
@@ -250,7 +312,7 @@ class AsterfallDesktopApp:
 
         self.game_frame = tk.Frame(self.root, bg="#111317")
         self.game_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
-        self.game_frame.grid_columnconfigure(0, weight=4)
+        self.game_frame.grid_columnconfigure(0, weight=3)
         self.game_frame.grid_columnconfigure(1, weight=2)
         self.game_frame.grid_rowconfigure(0, weight=1)
 
@@ -261,7 +323,7 @@ class AsterfallDesktopApp:
 
         right = tk.Frame(self.game_frame, bg="#111317", padx=12, pady=12)
         right.grid(row=0, column=1, sticky="nsew", padx=(0, 12))
-        right.grid_rowconfigure(0, weight=2)
+        right.grid_rowconfigure(0, weight=3)
         right.grid_rowconfigure(1, weight=2)
         right.grid_rowconfigure(2, weight=1)
         right.grid_columnconfigure(0, weight=1)
@@ -300,7 +362,7 @@ class AsterfallDesktopApp:
         self.entry.bind("<Up>", self.on_history_up)
         self.entry.bind("<Down>", self.on_history_down)
 
-        self.visual_panel = self._make_panel(right, "Visual Plate", row=0, font=small_mono)
+        self.visual_frame, self.visual_label = self._make_visual_panel(right, "Visual Plate", row=0, font=small_mono)
         self.map_panel = self._make_panel(right, "Observatory Map", row=1, font=small_mono)
         self.inventory_panel = self._make_panel(right, "Inventory", row=2, font=small_mono)
 
@@ -340,6 +402,28 @@ class AsterfallDesktopApp:
         text.configure(state="disabled")
         return text
 
+    def _make_visual_panel(self, parent: tk.Frame, title: str, row: int, *, font) -> tuple[tk.Frame, tk.Label]:
+        frame = tk.Frame(parent, bg="#1a1f26", bd=1, relief="flat")
+        frame.grid(row=row, column=0, sticky="nsew", pady=(0, 10 if row < 2 else 0))
+        frame.grid_rowconfigure(1, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
+
+        label = tk.Label(frame, text=title, anchor="w", bg="#232a34", fg="#d7cfba", padx=10, pady=6, font=font)
+        label.grid(row=0, column=0, sticky="ew")
+
+        visual = tk.Label(
+            frame,
+            text="Visual plate reserved for a future room image.",
+            justify="center",
+            bg="#141920",
+            fg="#dcd5c4",
+            font=font,
+            padx=10,
+            pady=10,
+        )
+        visual.grid(row=1, column=0, sticky="nsew")
+        return frame, visual
+
     def append_lines(self, lines: list[str]) -> None:
         if not lines:
             return
@@ -367,10 +451,38 @@ class AsterfallDesktopApp:
     def refresh_side_panels(self) -> None:
         assert self.map_panel is not None
         assert self.inventory_panel is not None
-        assert self.visual_panel is not None
         self.set_panel_text(self.map_panel, self.session.map_text())
         self.set_panel_text(self.inventory_panel, self.session.inventory_text())
-        self.set_panel_text(self.visual_panel, self.session.visual_text())
+        self.update_room_visual()
+
+    def update_room_visual(self) -> None:
+        if self.visual_label is None or self.visual_frame is None:
+            return
+        assert self.session.game is not None
+        room_id = self.session.game.state.current_room
+        path = room_image_path(room_id)
+        if path is None:
+            self.visual_label.configure(
+                image="",
+                text=self.session.visual_text(),
+            )
+            self.room_visual_image = None
+            return
+        try:
+            image = tk.PhotoImage(file=str(path))
+            max_width = max(360, self.visual_frame.winfo_width() - 8)
+            max_height = max(260, self.visual_frame.winfo_height() - 34)
+            factor = subsample_factor(image.width(), image.height(), max_width, max_height)
+            if factor > 1:
+                image = image.subsample(factor, factor)
+            self.room_visual_image = image
+            self.visual_label.configure(image=image, text="")
+        except tk.TclError:
+            self.visual_label.configure(
+                image="",
+                text=self.session.visual_text(),
+            )
+            self.room_visual_image = None
 
     def on_submit(self, _event=None):
         assert self.entry is not None

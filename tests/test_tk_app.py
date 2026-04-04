@@ -1,7 +1,15 @@
 from types import SimpleNamespace
 
 from game.audio import AudioConfig
-from game.tk_app import DesktopAudioManager, DesktopGameSession, POST_WIN_PROMPT, centered_geometry
+from game.tk_app import (
+    DesktopAudioManager,
+    DesktopGameSession,
+    POST_WIN_PROMPT,
+    centered_geometry,
+    room_image_path,
+    startup_cover_path,
+    subsample_factor,
+)
 
 
 def make_args(seed=4517, debug=False, mute=True, audio_preset="normal"):
@@ -23,6 +31,23 @@ def test_desktop_session_title_screen_text_stops_before_run_seed():
 
 def test_centered_geometry_places_window_in_screen_center():
     assert centered_geometry(1600, 1000, 1200, 760) == "1200x760+200+120"
+
+
+def test_startup_cover_path_uses_expected_repo_location():
+    path = startup_cover_path()
+    assert path is not None
+    assert str(path).endswith("assets/images/startup/cover_v1.png")
+
+
+def test_room_image_path_uses_expected_repo_location():
+    path = room_image_path("cliff_path")
+    assert path is not None
+    assert str(path).endswith("assets/images/rooms/cliff_path.png")
+
+
+def test_subsample_factor_scales_down_only_when_needed():
+    assert subsample_factor(1600, 900, 800, 450) == 2
+    assert subsample_factor(640, 400, 800, 450) == 1
 
 
 def test_desktop_session_begin_gameplay_starts_with_seed_then_room():

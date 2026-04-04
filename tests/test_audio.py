@@ -3,7 +3,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from game.audio_assets import ensure_audio_assets
-from game.audio import AudioConfig, AudioManager, ambient_key_for_state
+from game.audio import AudioConfig, AudioManager, CROSSFADE_MS, ambient_key_for_state
 from game.engine import Game
 
 
@@ -17,6 +17,37 @@ class FakeAudio:
 
     def play_sfx(self, name: str) -> None:
         self.sfx.append(name)
+
+
+class FakeChannel:
+    def __init__(self):
+        self.calls = []
+        self.volume = None
+
+    def play(self, sound, loops=0, fade_ms=0):
+        self.calls.append(("play", sound, loops, fade_ms))
+
+    def stop(self):
+        self.calls.append(("stop",))
+
+    def fadeout(self, ms):
+        self.calls.append(("fadeout", ms))
+
+    def set_volume(self, value):
+        self.volume = value
+        self.calls.append(("set_volume", value))
+
+
+class FakePygame:
+    class mixer:
+        class music:
+            @staticmethod
+            def set_volume(value):
+                return None
+
+        @staticmethod
+        def Sound(path):
+            return path
 
 
 def test_audio_manager_falls_back_when_pygame_import_fails():
@@ -72,3 +103,30 @@ def test_game_plays_power_restore_sfx_when_fuse_is_used():
     game.process("use ceramic fuse on panel")
     assert "fuse_insert" in fake.sfx
     assert "power_restore" in fake.sfx
+
+
+def test_audio_manager_crossfades_between_ambient_channels(tmp_path):
+    manager = AudioManager(AudioConfig(root=tmp_path / "audio"))
+    manager.paths = ensure_audio_assets(tmp_path / "audio")
+    manager.available = True
+    manager.config.ambient_enabled = True
+    manager._pygame = FakePygame()
+    channel_a = FakeChannel()
+    channel_b = FakeChannel()
+    manager._ambient_channels = [channel_a, channel_b]
+
+    manager.play_ambient("cliff_path")
+    assert manager.current_ambient == "cliff_path"
+    assert manager._active_ambient_index == 0
+    assert any(call[0] == "play" and call[2:] == (-1, 0) for call in channel_a.calls)
+
+    first_call_count = len(channel_a.calls) + len(channel_b.calls)
+    manager.play_ambient("cliff_path")
+    assert len(channel_a.calls) + len(channel_b.calls) == first_call_count
+
+    manager.play_ambient("sea_cave")
+    assert manager.current_ambient == "sea_cave"
+    assert manager._active_ambient_index == 1
+    assert ("stop",) in channel_b.calls
+    assert any(call[0] == "play" and call[2:] == (-1, CROSSFADE_MS) for call in channel_b.calls)
+    assert ("fadeout", CROSSFADE_MS) in channel_a.calls

@@ -8,6 +8,9 @@ from pathlib import Path
 from game.audio_assets import ensure_audio_assets
 
 
+CROSSFADE_MS = 1000
+
+
 def _env_enabled(name: str, default: bool = True) -> bool:
     value = os.environ.get(name)
     if value is None:
@@ -45,7 +48,8 @@ class AudioManager:
         self.current_music = None
         self.current_ambient = None
         self._pygame = None
-        self._ambient_channel = None
+        self._ambient_channels: list[object] = []
+        self._active_ambient_index: int | None = None
         self._sfx_channel = None
 
     def initialize(self) -> bool:
@@ -58,7 +62,7 @@ class AudioManager:
             pygame.mixer.init()
             pygame.mixer.set_num_channels(8)
             self._pygame = pygame
-            self._ambient_channel = pygame.mixer.Channel(1)
+            self._ambient_channels = [pygame.mixer.Channel(1), pygame.mixer.Channel(3)]
             self._sfx_channel = pygame.mixer.Channel(2)
             self._apply_volumes()
             self.available = True
@@ -73,7 +77,8 @@ class AudioManager:
             return
         try:
             self._pygame.mixer.music.stop()
-            self._ambient_channel.stop()
+            for channel in self._ambient_channels:
+                channel.stop()
             self._sfx_channel.stop()
             self._pygame.mixer.quit()
         except Exception:
@@ -92,8 +97,11 @@ class AudioManager:
         ambient_key = ambient_key_for_state(state)
         if self.config.ambient_enabled:
             self.play_ambient(ambient_key)
-        elif self._ambient_channel:
-            self._ambient_channel.stop()
+        else:
+            for channel in self._ambient_channels:
+                channel.stop()
+            self.current_ambient = None
+            self._active_ambient_index = None
 
     def play_music(self, name: str) -> None:
         if not self.available or not self.config.music_enabled:
@@ -112,7 +120,7 @@ class AudioManager:
             self.available = False
 
     def play_ambient(self, name: str) -> None:
-        if not self.available or not self.config.ambient_enabled or self._ambient_channel is None:
+        if not self.available or not self.config.ambient_enabled or len(self._ambient_channels) != 2:
             return
         if self.current_ambient == name:
             return
@@ -121,7 +129,21 @@ class AudioManager:
             return
         try:
             sound = self._pygame.mixer.Sound(str(path))
-            self._ambient_channel.play(sound, loops=-1)
+            if self._active_ambient_index is None:
+                channel = self._ambient_channels[0]
+                channel.stop()
+                channel.play(sound, loops=-1)
+                self._active_ambient_index = 0
+                self.current_ambient = name
+                return
+            outgoing_index = self._active_ambient_index
+            incoming_index = 1 - outgoing_index
+            outgoing = self._ambient_channels[outgoing_index]
+            incoming = self._ambient_channels[incoming_index]
+            incoming.stop()
+            incoming.play(sound, loops=-1, fade_ms=CROSSFADE_MS)
+            outgoing.fadeout(CROSSFADE_MS)
+            self._active_ambient_index = incoming_index
             self.current_ambient = name
         except Exception:
             self.failed = True
@@ -155,8 +177,8 @@ class AudioManager:
         else:
             music, ambient, sfx = 0.32, 0.22, 0.40
         self._pygame.mixer.music.set_volume(music if self.config.music_enabled else 0.0)
-        if self._ambient_channel is not None:
-            self._ambient_channel.set_volume(ambient if self.config.ambient_enabled else 0.0)
+        for channel in self._ambient_channels:
+            channel.set_volume(ambient if self.config.ambient_enabled else 0.0)
         if self._sfx_channel is not None:
             self._sfx_channel.set_volume(sfx if self.config.sfx_enabled else 0.0)
 
@@ -172,4 +194,3 @@ def ambient_key_for_state(state) -> str:
     if room == "orrery_dome":
         return "orrery_dome_energized" if state.flags.get("power_on") or state.flags.get("lens_installed") else "orrery_dome_idle"
     return room
-

@@ -29,7 +29,9 @@ def test_prompt_includes_constraint_language():
     assert "Do not assume or invent hidden game state" in prompt
     assert "Keep your answer to one sentence, at most two." in prompt
     assert "Do not sound like an analyst, expert observer, or modern assistant." in prompt
-    assert "Prefer hints, clues, or gentle nudges" in prompt
+    assert "Act like a second mind helping the player organize what is already known" in prompt
+    assert "Your reply should primarily do one thing: recap, connect, surface tension, or focus attention." in prompt
+    assert "Do not talk about commands, parser syntax, accepted words, game logic, or author intent." in prompt
     assert "For map-based questions, stay grounded in the visible layout" in prompt
     assert "What should I try?" in prompt
 

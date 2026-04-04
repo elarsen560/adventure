@@ -15,6 +15,8 @@ The project is organized as a small, expandable Python game rather than a single
 - `game/companion.py`: optional constrained companion integration via Codex CLI or OpenAI API
 - `game/hazards.py`: seeded environmental hazard selection and resolution rules
 - `game/map.py`: authored ASCII map rendering for explored areas
+- `game/npcs.py`: featured NPC archetypes, generation rules, and role assignment
+- `game/npc_dialogue.py`: bounded featured-NPC dialogue prompt construction
 - `game/state.py`: runtime game state and world initialization
 - `game/content.py`: authored rooms, items, NPCs, and replay variability
 - `game/persistence.py`: save/load support
@@ -82,7 +84,7 @@ The parser supports classic text adventure commands, including:
 - `new note <text>`
 - `read notes`
 - `inventory` or `i`
-- `talk <character>`
+- `talk <character> [message]`
 - `help`
 - `save` or `save <filename>`
 - `load` or `load <filename>`
@@ -103,7 +105,9 @@ In debug mode, `full map` reveals the complete authored layout immediately and `
 
 You can also keep a player-authored notebook with `note <text>` or `new note <text>`, and review it with `notes` or `read notes`.
 
-You can consult an optional constrained companion with `ask <question>` or just `ask` for a general suggestion. By default the game prefers a local authenticated `codex exec` session when available; otherwise it can use the OpenAI API if `OPENAI_API_KEY` is configured. The companion only receives currently visible game context, your inventory, your notes, the visible map, and recent turn history; it is designed to help interpret known information rather than reveal hidden state.
+Each run also includes exactly one featured in-world NPC selected from a curated cast. The featured NPC has a seeded room, a bounded gameplay role, and short replayable dialogue that stays grounded in engine-approved knowledge. Static characters such as Wren still use the same `talk` command.
+
+You can consult an optional constrained companion with `ask <question>` or just `ask` for a general suggestion. By default the game prefers a local authenticated `codex exec` session when available; otherwise it can use the OpenAI API if `OPENAI_API_KEY` is configured. The companion only receives currently visible game context, your inventory, your notes, the visible map, recent turn history, and a short excerpt of recent NPC exchanges; it is designed to help interpret known information rather than reveal hidden state.
 
 During normal play, the observatory may occasionally emit short atmospheric ambient lines tied to your location and the station's changing condition. These are intentionally infrequent, deterministic within a run, and do not reveal puzzle solutions.
 
@@ -124,6 +128,7 @@ Each run is generated from a reproducible seed shown at the start of the game. T
 - which exterior location hides the groundskeeper key
 - where the transit token appears
 - which room gets an optional extra reward
+- which featured NPC appears, where they wait, and what bounded gameplay role they serve
 - which environmental hazard appears in which authored mid-game room
 - which authored four-word archive code is used
 - the final three-number lever alignment

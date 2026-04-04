@@ -1,7 +1,9 @@
 from game.engine import Game
 from game.ambient import ambient_candidates, should_emit_ambient
+from game.npcs import FEATURED_NPCS, NPC_ROLE_DEFINITIONS, valid_role_room_pairs
 from game.persistence import load_game, resolve_save_path, save_game
 from game.state import validate_starting_key_access
+from unittest.mock import patch
 
 
 def _to_room(game: Game, room_id: str) -> None:
@@ -14,6 +16,9 @@ def test_seeded_variation_is_reproducible():
     game_b = Game(seed=1337)
     assert game_a.state.variation == game_b.state.variation
     assert game_a.state.hidden_items == game_b.state.hidden_items
+    assert game_a.state.featured_npc_id == game_b.state.featured_npc_id
+    assert game_a.state.featured_npc_room == game_b.state.featured_npc_room
+    assert game_a.state.featured_npc_role == game_b.state.featured_npc_role
 
 
 def test_debug_flag_sets_runtime_mode():
@@ -34,6 +39,9 @@ def test_save_and_load_roundtrip(tmp_path):
     assert loaded.notes == ["Check the generator panel"]
     assert loaded.hazard_type == game.state.hazard_type
     assert loaded.hazard_room == game.state.hazard_room
+    assert loaded.featured_npc_id == game.state.featured_npc_id
+    assert loaded.featured_npc_room == game.state.featured_npc_room
+    assert loaded.featured_npc_role == game.state.featured_npc_role
 
 
 def test_bare_save_name_resolves_to_saves_folder():
@@ -284,6 +292,59 @@ def test_open_without_target_uses_single_obvious_object():
     game.state.inventory.append("groundskeeper_key")
     game.process("unlock gate")
     assert "ready" in game.process("open")
+
+
+def test_featured_npc_assignment_is_valid():
+    for seed in range(4500, 4550):
+        game = Game(seed=seed)
+        profile = FEATURED_NPCS[game.state.featured_npc_id]
+        assert game.state.featured_npc_role in NPC_ROLE_DEFINITIONS
+        assert (game.state.featured_npc_role, game.state.featured_npc_room) in valid_role_room_pairs(profile, game.state.hazard_room)
+
+
+def test_featured_npc_talk_reveals_engine_controlled_clue():
+    game = Game(seed=4517)
+    game.state.featured_npc_id = "miss_fenn"
+    game.state.featured_npc_room = "library"
+    game.state.featured_npc_role = "clue_interpreter"
+    game.state.current_room = "library"
+    game.state.discovered_rooms.add("library")
+    game.state.inventory.append("constellation_folio")
+    with patch("game.engine.request_npc_response", return_value="Those four names belong to a lock, I think."):
+        text = game.process("talk Miss Fenn")
+    assert "Miss Fenn says" in text
+    assert game.state.featured_npc_met is True
+    assert game.state.featured_npc_revealed is True
+
+
+def test_featured_npc_item_gate_grants_match_tin_once():
+    game = Game(seed=4517)
+    game.state.featured_npc_id = "mr_finch"
+    game.state.featured_npc_room = "foyer"
+    game.state.featured_npc_role = "item_gate"
+    game.state.current_room = "foyer"
+    game.state.discovered_rooms.add("foyer")
+    with patch("game.engine.request_npc_response", return_value="Take these matches. The place has corners that answer better to a poor light."):
+        first = game.process("talk Mr. Finch")
+    assert "Mr. Finch says" in first
+    assert "match_tin" in game.state.inventory
+    with patch("game.engine.request_npc_response", return_value="I have already done what little I can in that line."):
+        second = game.process("talk Mr. Finch")
+    assert game.state.inventory.count("match_tin") == 1
+    assert "Mr. Finch says" in second
+
+
+def test_talk_parser_handles_character_plus_message_for_featured_npc():
+    game = Game(seed=4517)
+    game.state.featured_npc_id = "captain_vale"
+    game.state.featured_npc_room = "foyer"
+    game.state.featured_npc_role = "access_insight"
+    game.state.current_room = "foyer"
+    game.state.discovered_rooms.add("foyer")
+    with patch("game.engine.request_npc_response", return_value="The gate still looks like the matter before all other matters."):
+        text = game.process("talk Captain Vale What do you make of the gate?")
+    assert "Captain Vale says" in text
+    assert game.state.npc_history[-1]["player"] == "What do you make of the gate?"
 
 
 def test_seeded_hazard_is_reproducible_and_midgame():

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from game.content import ITEMS, NPCS, ROOMS, build_variation
 from game.hazards import select_hazard, validate_hazard_selection
+from game.npcs import featured_npc_entity, generate_featured_npc, validate_featured_npc_assignment
 
 
 KEY_DISCOVERY_RULES = {
@@ -114,6 +115,14 @@ class GameState:
     hazard_room: str | None = None
     hazard_warnings: int = 0
     hazard_resolved: bool = False
+    featured_npc_id: str | None = None
+    featured_npc_room: str | None = None
+    featured_npc_role: str | None = None
+    featured_npc_met: bool = False
+    featured_npc_revealed: bool = False
+    featured_npc_item_granted: bool = False
+    npc_history: list[dict[str, str]] = field(default_factory=list)
+    npc_conversation_history: dict[str, list[dict[str, str]]] = field(default_factory=dict)
     inventory: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     recent_history: list[dict[str, str]] = field(default_factory=list)
@@ -135,6 +144,8 @@ class GameState:
         state = cls(seed=seed, variation=variation)
         state.hazard_type, state.hazard_room = select_hazard(seed)
         validate_hazard_selection(state.hazard_type, state.hazard_room)
+        state.featured_npc_id, state.featured_npc_room, state.featured_npc_role = generate_featured_npc(seed, state.hazard_room)
+        validate_featured_npc_assignment(state.featured_npc_id, state.featured_npc_room, state.featured_npc_role, state.hazard_room)
         state.discovered_rooms = {"cliff_path"}
         state.flags = {
             "front_gate_unlocked": False,
@@ -176,6 +187,14 @@ class GameState:
             "hazard_room": self.hazard_room,
             "hazard_warnings": self.hazard_warnings,
             "hazard_resolved": self.hazard_resolved,
+            "featured_npc_id": self.featured_npc_id,
+            "featured_npc_room": self.featured_npc_room,
+            "featured_npc_role": self.featured_npc_role,
+            "featured_npc_met": self.featured_npc_met,
+            "featured_npc_revealed": self.featured_npc_revealed,
+            "featured_npc_item_granted": self.featured_npc_item_granted,
+            "npc_history": self.npc_history,
+            "npc_conversation_history": self.npc_conversation_history,
             "inventory": self.inventory,
             "notes": self.notes,
             "recent_history": self.recent_history,
@@ -203,6 +222,17 @@ class GameState:
         state.hazard_room = saved_hazard_room
         state.hazard_warnings = data.get("hazard_warnings", 0)
         state.hazard_resolved = data.get("hazard_resolved", False if saved_hazard_type else True)
+        state.featured_npc_id = data.get("featured_npc_id")
+        state.featured_npc_room = data.get("featured_npc_room")
+        state.featured_npc_role = data.get("featured_npc_role")
+        state.featured_npc_met = data.get("featured_npc_met", False)
+        state.featured_npc_revealed = data.get("featured_npc_revealed", False)
+        state.featured_npc_item_granted = data.get("featured_npc_item_granted", False)
+        state.npc_history = [dict(item) for item in data.get("npc_history", [])]
+        state.npc_conversation_history = {
+            npc_id: [dict(item) for item in history]
+            for npc_id, history in data.get("npc_conversation_history", {}).items()
+        }
         state.inventory = list(data["inventory"])
         state.notes = list(data.get("notes", []))
         state.recent_history = [dict(item) for item in data.get("recent_history", [])]
@@ -256,7 +286,7 @@ def find_item_id(query: str, item_ids: list[str]) -> str | None:
 def find_npc_id(query: str, npc_ids: list[str]) -> str | None:
     option_map: dict[str, str] = {}
     for npc_id in npc_ids:
-        npc = NPCS[npc_id]
+        npc = NPCS.get(npc_id) or featured_npc_entity(npc_id)
         for value in (npc.name, *npc.aliases):
             for variant in phrase_variants(value):
                 option_map[variant] = npc_id
@@ -266,9 +296,12 @@ def find_npc_id(query: str, npc_ids: list[str]) -> str | None:
 
 
 def visible_npcs(state: GameState, room_id: str) -> list[str]:
+    npcs = []
     if room_id == "conservatory":
-        return ["wren"]
-    return []
+        npcs.append("wren")
+    if state.featured_npc_id and room_id == state.featured_npc_room:
+        npcs.append(state.featured_npc_id)
+    return npcs
 
 
 def current_room_items(state: GameState) -> list[str]:

@@ -47,12 +47,27 @@ def get_config_value(key: str, default: str | None = None) -> str | None:
     return os.environ.get(key) or read_dotenv_value(key) or default
 
 
-def build_companion_context(*, room_name: str, room_text: str, inventory: list[str], notes: list[str], map_text: str, recent_history: list[dict[str, str]]) -> str:
+def build_companion_context(
+    *,
+    room_name: str,
+    room_text: str,
+    inventory: list[str],
+    notes: list[str],
+    map_text: str,
+    recent_history: list[dict[str, str]],
+    npc_history: list[dict[str, str]] | None = None,
+) -> str:
     history_lines = []
     for turn in recent_history[-MAX_HISTORY:]:
         history_lines.append(f"Player: {turn['command']}")
         history_lines.append(f"Game: {turn['response']}")
     history_block = "\n".join(history_lines) if history_lines else "None."
+    npc_lines = []
+    for turn in (npc_history or [])[-MAX_HISTORY:]:
+        npc_name = turn.get("npc_name") or turn["npc_id"]
+        npc_lines.append(f"Player to {npc_name}: {turn['player']}")
+        npc_lines.append(f"{npc_name}: {turn['npc']}")
+    npc_block = "\n".join(npc_lines) if npc_lines else "None."
     inventory_text = ", ".join(inventory) if inventory else "Nothing."
     notes_lines = [f"{index}. {note}" for index, note in enumerate(notes, start=1)]
     notes_text = "\n".join(notes_lines) if notes_lines else "None."
@@ -72,6 +87,8 @@ def build_companion_context(*, room_name: str, room_text: str, inventory: list[s
         f"{map_text}\n"
         "Recent turns:\n"
         f"{history_block}\n"
+        "Recent NPC exchanges:\n"
+        f"{npc_block}\n"
     )
 
 
@@ -92,6 +109,7 @@ def build_companion_prompt(context: str, question: str | None) -> str:
         "Avoid mentioning speculative leads unless there is concrete support in the visible room text, map, notes, inventory, or recent turns.\n"
         "For general questions such as what to do now, briefly acknowledge solved systems if relevant and then weight the most evidenced remaining mechanism, location, or dependency.\n"
         "For map-based questions, stay grounded in the visible layout and do not over-interpret puzzle relevance or narrative meaning unless it is explicit in the context.\n"
+        "Treat NPC dialogue as in-world testimony rather than absolute fact; you may synthesize it, weigh it, or gently question it, but do not let it overrule the rest of the visible context.\n"
         "When one unfinished thread is clearly stronger than the rest, give it more weight without turning it into a command.\n"
         "Do not use imperative walkthrough language, and do not say do X then Y.\n"
         "Do not give explicit puzzle solutions unless the exact answer already appears in the player's own visible notes or context and the player is plainly asking for interpretation of those known facts; even then, phrase it as a weighted inference rather than an instruction.\n"

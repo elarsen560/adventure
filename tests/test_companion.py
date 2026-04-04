@@ -13,12 +13,15 @@ def test_context_assembly_includes_allowed_sections():
         notes=["Check the gate."],
         map_text="[@ CP]",
         recent_history=[{"command": "look", "response": "You are here."}],
+        npc_history=[{"npc_id": "mr_finch", "player": "What now?", "npc": "The gate still looks shut by intent."}],
     )
     assert "Current room: Cliff Path" in context
     assert "Inventory: oil flask" in context
     assert "1. Check the gate." in context
     assert "Player: look" in context
     assert "Visible map:\n[@ CP]" in context
+    assert "Recent NPC exchanges:" in context
+    assert "Player to mr_finch: What now?" in context
 
 
 def test_prompt_includes_constraint_language():
@@ -39,6 +42,7 @@ def test_context_describes_companion_voice():
         notes=[],
         map_text="[@ CP]",
         recent_history=[],
+        npc_history=[],
     )
     assert "restrained companion in a classic parser adventure" in context
     assert "never omniscient" in context
@@ -62,6 +66,16 @@ def test_engine_ask_uses_companion_response():
         game = Game(seed=4517)
         response = game.process("ask What should I do next?")
         assert response == "Try examining the observatory again."
+
+
+def test_engine_ask_passes_npc_history_into_context():
+    with patch("game.engine.companion_available", return_value=True), patch("game.engine.build_companion_context", return_value="ctx") as mock_context, patch(
+        "game.engine.request_companion_response", return_value="The room still wants something settled."
+    ):
+        game = Game(seed=4517)
+        game.state.npc_history.append({"npc_id": "captain_vale", "player": "What now?", "npc": "The lift is not yet persuaded."})
+        game.process("ask")
+        assert mock_context.call_args.kwargs["npc_history"] == game.state.npc_history
 
 
 def test_companion_available_true_when_codex_exists_without_api_key():

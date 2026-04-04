@@ -9,6 +9,8 @@ from game.content import ITEMS, NPCS, ROOMS, intro_text, parse_args
 from game.ambient import select_ambient_line, should_emit_ambient
 from game.hazards import hazard_clue, hazard_definition, hazard_feature_aliases, hazard_hint_targets, hazard_lingering_text, hazard_resolves_on_examine, should_warn_on_go, should_warn_on_take, should_warn_on_use
 from game.map import render_map, room_lookup
+from game.npc_dialogue import build_npc_context, build_npc_prompt, request_npc_response
+from game.npcs import featured_npc_entity, featured_npc_profile
 from game.parser import Command, parse_command
 from game.persistence import load_game, save_game
 from game.state import GameState, best_match, current_room_items, extracted_keywords, find_item_id, find_npc_id, phrase_variants, reveal_hidden_item, visible_npcs
@@ -169,7 +171,7 @@ note <text>
 notes
 inventory / i
 map
-talk <character>
+talk <character> [message]
 help
 save [filename]
 load [filename]
@@ -190,6 +192,9 @@ class Game:
     def set_state(self, state: GameState) -> None:
         self.state = state
 
+    def npc_entity(self, npc_id: str):
+        return NPCS.get(npc_id) or featured_npc_entity(npc_id)
+
     def describe_room(self) -> str:
         room = ROOMS[self.state.current_room]
         lines = [f"\n{room.name}", room.description]
@@ -209,7 +214,7 @@ class Game:
         if npcs:
             names = []
             for npc_id in npcs:
-                name = NPCS[npc_id].name
+                name = self.npc_entity(npc_id).name
                 if npc_id == "wren" and not self.state.flags["wren_awake"]:
                     name += " (motionless)"
                 names.append(name)
@@ -309,7 +314,7 @@ class Game:
                 names.append(name)
         names.extend(ITEMS[item_id].name for item_id in current_room_items(self.state))
         npcs = visible_npcs(self.state, self.state.current_room)
-        names.extend(NPCS[npc_id].name for npc_id in npcs)
+        names.extend(self.npc_entity(npc_id).name for npc_id in npcs)
         if not names:
             return "There is nothing obvious to focus on."
         return "You might try " + ", ".join(names[:4]) + "."
@@ -409,7 +414,10 @@ class Game:
         if npc_id:
             if npc_id == "wren" and not self.state.flags["wren_awake"]:
                 return NPCS[npc_id].description + " A keyhole glints in the spring housing at its back."
-            return NPCS[npc_id].description + " Its glass eyes track you with patient attention."
+            npc = self.npc_entity(npc_id)
+            if npc_id == self.state.featured_npc_id:
+                return npc.description + " The figure seems ready to speak if you address them."
+            return npc.description + " Its glass eyes track you with patient attention."
 
         if self.state.current_room == "conservatory" and target in {"labels", "plaques", "planters"}:
             return self.state.clue_texts["conservatory_labels"]
@@ -752,6 +760,7 @@ class Game:
             notes=list(self.state.notes),
             map_text=render_map(self.state),
             recent_history=list(self.state.recent_history),
+            npc_history=list(self.state.npc_history),
         )
         prompt = build_companion_prompt(context, command.target)
         return request_companion_response(prompt)
@@ -800,11 +809,40 @@ class Game:
         return None
 
     def do_talk(self, command: Command) -> str:
-        if not command.target:
-            return "Talk to whom?"
-        npc_id = find_npc_id(command.target, visible_npcs(self.state, self.state.current_room))
+        npc_id, message = self.resolve_talk_target(command.target)
         if not npc_id:
-            return "No answer."
+            return "Talk to whom?"
+        self.state.featured_npc_met = self.state.featured_npc_met or npc_id == self.state.featured_npc_id
+        if npc_id == self.state.featured_npc_id:
+            return self.talk_featured_npc(npc_id, message)
+        return self.talk_static_npc(npc_id)
+
+    def resolve_talk_target(self, target_text: str | None) -> tuple[str | None, str | None]:
+        if not target_text:
+            return None, None
+        visible = visible_npcs(self.state, self.state.current_room)
+        raw_words = target_text.split()
+        lowered = " ".join(target_text.lower().split())
+        best: tuple[int, str] | None = None
+        for npc_id in visible:
+            npc = self.npc_entity(npc_id)
+            candidates = (npc.name, *npc.aliases)
+            for candidate in candidates:
+                normalized = " ".join(candidate.lower().split())
+                if lowered == normalized or lowered.startswith(normalized + " "):
+                    word_count = len(normalized.split())
+                    if best is None or word_count > best[0]:
+                        best = (word_count, npc_id)
+        if best is not None:
+            words_used, npc_id = best
+            message = " ".join(raw_words[words_used:]).strip() or None
+            return npc_id, message
+        npc_id = find_npc_id(target_text, visible)
+        if not npc_id:
+            return None, None
+        return npc_id, None
+
+    def talk_static_npc(self, npc_id: str) -> str:
         if npc_id == "wren" and not self.state.flags["wren_awake"]:
             return "Wren is still and silent."
 
@@ -818,6 +856,171 @@ class Game:
         if not self.state.flags["signal_lit"]:
             return "Wren says, 'Lens first, then the final three positions from the astronomer's last page. When you have them, set the levers directly.'"
         return "Wren inclines its head. 'Signal confirmed. About time.'"
+
+    def talk_featured_npc(self, npc_id: str, message: str | None) -> str:
+        profile = featured_npc_profile(npc_id)
+        approved_guidance, approved_action, fallback = self.featured_npc_guidance(profile)
+        transcript = self.state.npc_conversation_history.get(npc_id, [])
+        response = None
+        prompt = build_npc_prompt(
+            build_npc_context(
+                profile=profile,
+                role=self.state.featured_npc_role or "access_insight",
+                room_name=ROOMS[self.state.current_room].name,
+                inventory=[ITEMS[item_id].name for item_id in self.state.inventory],
+                notes=list(self.state.notes),
+                transcript=transcript,
+                approved_guidance=approved_guidance,
+                approved_action=approved_action,
+            ),
+            message,
+        )
+        response = request_npc_response(prompt)
+        if not response:
+            response = fallback
+        self.record_npc_history(npc_id, message or "(no message)", response)
+        return f"{profile['display_name']} says, '{response}'"
+
+    def featured_npc_guidance(self, profile: dict) -> tuple[str, str | None, str]:
+        role = self.state.featured_npc_role
+        flags = self.state.flags
+        if role == "clue_interpreter":
+            if not flags["archive_unlocked"] and "constellation_folio" in self.state.inventory:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may interpret the visible folio as an ordered lock clue tied to the archive door, without stating the exact code unless the player already visibly has it.",
+                    "The NPC's key clue is now available: the folio's four names belong to the archive lock order.",
+                    "That folio reads less like sky-lore than a lock's private order.",
+                )
+            if not flags["signal_lit"] and "logbook_page" in self.state.inventory:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may interpret the visible logbook page as final machine settings to be used only once the orrery is otherwise made ready, without stating the numbers unless the player already has the page.",
+                    "The NPC's key clue is now available: the page concerns the final alignment after lens seating.",
+                    "That torn page sounds like a last adjustment, not a beginning.",
+                )
+            return (
+                "You may say you are best with papers, orders, and marks once the player has something written worth reading.",
+                None,
+                "Show me a proper record or note, and I may make more of it than first appears.",
+            )
+        if role == "access_insight":
+            if not flags["front_gate_unlocked"]:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may point toward the front gate's keeper-made lock and the need for its key, without inventing where the key lies.",
+                    "The NPC's key clue is now available: the front gate expects its groundskeeper key.",
+                    "That gate was shut by habit, which is to say by the proper key.",
+                )
+            if not flags["archive_unlocked"]:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may point toward the archive wheel lock as an ordered sequence problem rather than a key problem.",
+                    "The NPC's key clue is now available: the archive wants an exact order, not a key.",
+                    "The northern door strikes me as an order of symbols rather than a matter of brass and teeth.",
+                )
+            if not flags["power_on"]:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may point toward the lower machinery: drainage and a fuse are the strongest visible unfinished thread.",
+                    "The NPC's key clue is now available: the station still needs drainage and power restored.",
+                    "The station is still asleep below; water and current would seem the missing courtesies.",
+                )
+            if not flags["lift_oiled"] or "transit_token" not in self.state.inventory:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may point toward the lift's remaining needs without implying anything unearned: it still lacks mechanical ease or the proper token.",
+                    "The NPC's key clue is now available: the lift needs both readiness and proper access.",
+                    "The lift does not yet look altogether persuaded.",
+                )
+            if not flags["lens_installed"]:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may point toward the orrery's empty socket as the remaining visible dependency.",
+                    "The NPC's key clue is now available: the orrery still lacks its lens.",
+                    "The great machine still looks short by one necessary piece.",
+                )
+            return (
+                "You may say the remaining work looks concentrated under the dome, without giving the full final answer.",
+                None,
+                "What remains now seems to belong to the heart of the station, not its outer doors.",
+            )
+        if role == "hidden_detail_spotter":
+            if not flags["front_gate_unlocked"] and "groundskeeper_key" not in self.state.inventory:
+                self.state.featured_npc_revealed = True
+                key_room = self.state.variation["key_room"]
+                hint = {
+                    "cliff_path": "There was a blink of metal near the cliff edge.",
+                    "front_gate": "Something small has caught itself in the gate's ironwork.",
+                    "sea_cave": "The offerings hid one harder shape than shell or wax.",
+                }[key_room]
+                return (
+                    "You may point toward the already-authored hidden key hint only, without adding new detail beyond that hint.",
+                    f"The NPC's key clue is now available: {hint}",
+                    hint,
+                )
+            if not flags["wren_awake"]:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may point toward something metallic hidden among the conservatory vines, without naming the item unless the player has already revealed it.",
+                    "The NPC's key clue is now available: something brass is caught in the conservatory growth.",
+                    "The conservatory has the look of a place that has grown over something useful.",
+                )
+            if not flags["secret_door_open"] and "match_tin" in self.state.inventory:
+                self.state.featured_npc_revealed = True
+                return (
+                    "You may point toward the moon painting frame as worth a closer look by matchlight.",
+                    "The NPC's key clue is now available: the moon painting may yield under firelight.",
+                    "That moonlit canvas does not hang like a simple picture.",
+                )
+            return (
+                "You may say that overlooked details matter here, but no stronger engine-approved clue is available right now.",
+                None,
+                "I would not yet swear what has been missed, only that this place rewards a second glance.",
+            )
+        if role == "hazard_warning":
+            hazard = hazard_definition(self.state.hazard_type)
+            room_name = ROOMS[self.state.hazard_room].name if self.state.hazard_room else "that room"
+            if hazard and not self.state.hazard_resolved:
+                self.state.featured_npc_revealed = True
+                return (
+                    f"You may warn about the active hazard in {room_name} in general terms, urging observation before handling anything there.",
+                    f"The NPC's key clue is now available: the hazard in {room_name} is dangerous if handled blindly.",
+                    f"There is a bad temper in {room_name}; I should look twice before I laid a hand on anything there.",
+                )
+            return (
+                "You may say the station feels safer now that the worst local danger has been read correctly.",
+                None,
+                "Whatever temper the place had in that quarter seems quieter now.",
+            )
+        if role == "item_gate":
+            if not self.state.featured_npc_item_granted and "match_tin" not in self.state.inventory and not flags["secret_door_open"]:
+                self.state.featured_npc_revealed = True
+                self.state.featured_npc_item_granted = True
+                self.state.inventory.append("match_tin")
+                return (
+                    "You may hand the player a match tin as a practical kindness and hint that some things are better read by a brief light than by darkness alone.",
+                    "The NPC's key action is available now: grant the match tin to the player.",
+                    "Take these matches. Some truths in this place prefer a smaller, poorer light.",
+                )
+            return (
+                "You may say you have already done what help you could in material terms.",
+                None,
+                "I have little more to spare beyond what has already changed hands.",
+            )
+        return (
+            "You may offer only cautious, in-world reflection grounded in visible circumstances.",
+            None,
+            "I know no more of it than the room itself is willing to say.",
+        )
+
+    def record_npc_history(self, npc_id: str, player_text: str, npc_text: str) -> None:
+        entry = {"npc_id": npc_id, "npc_name": self.npc_entity(npc_id).name, "player": player_text, "npc": npc_text}
+        self.state.npc_history.append(entry)
+        self.state.npc_history = self.state.npc_history[-10:]
+        history = list(self.state.npc_conversation_history.get(npc_id, []))
+        history.append({"player": player_text, "npc": npc_text})
+        self.state.npc_conversation_history[npc_id] = history[-10:]
 
     def do_save(self, command: Command) -> str:
         path = save_game(self.state, command.target)

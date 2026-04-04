@@ -84,6 +84,13 @@ def parse_command(text: str) -> Command:
         return Command("ask", raw=text)
     if lowered.startswith("ask "):
         return Command("ask", target=stripped[4:].strip() or None, raw=text)
+    if lowered == "talk":
+        return Command("talk", raw=text)
+    if lowered.startswith("talk "):
+        body = stripped[5:].strip()
+        if body.lower().startswith("to "):
+            body = body[3:].strip()
+        return Command("talk", target=body or None, raw=text)
     if lowered == "notes" or lowered == "read notes":
         return Command("notes", raw=text)
     if lowered.startswith("new note "):
@@ -108,9 +115,6 @@ def parse_command(text: str) -> Command:
     if verb == "look" and rest and rest[0] in {"at", "into"}:
         verb = "examine"
         rest = rest[1:]
-    elif verb == "talk" and rest and rest[0] == "to":
-        rest = rest[1:]
-
     if verb == "go" and rest and rest[0] in DIRECTION_ALIASES:
         rest[0] = DIRECTION_ALIASES[rest[0]]
 

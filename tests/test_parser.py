@@ -17,7 +17,13 @@ def test_use_on_parses_tool_and_target():
 def test_talk_to_normalizes():
     command = parse_command("talk to Wren")
     assert command.action == "talk"
-    assert command.target == "wren"
+    assert command.target == "Wren"
+
+
+def test_talk_preserves_character_and_message():
+    command = parse_command("talk Miss Fenn What do you make of this page?")
+    assert command.action == "talk"
+    assert command.target == "Miss Fenn What do you make of this page?"
 
 
 def test_enter_preserves_code_words():

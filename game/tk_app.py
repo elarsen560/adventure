@@ -17,6 +17,7 @@ from game.parser import parse_command
 POST_WIN_PROMPT = "Enter 'quit' to exit the observatory or 'restart' to begin a new run."
 STARTUP_COVER = Path("assets/images/startup/cover_v1.png")
 ROOM_IMAGE_DIR = Path("assets/images/rooms")
+MAP_WIDTH_RATIO = 0.75
 
 
 def centered_geometry(screen_width: int, screen_height: int, width: int, height: int) -> str:
@@ -301,19 +302,19 @@ class AsterfallDesktopApp:
             self.update_room_visual()
 
     def _build_layout(self) -> None:
-        self.root.grid_columnconfigure(0, weight=3)
-        self.root.grid_columnconfigure(1, weight=2)
+        self.root.grid_columnconfigure(0, weight=1, uniform="desktop")
+        self.root.grid_columnconfigure(1, weight=1, uniform="desktop")
         self.root.grid_rowconfigure(0, weight=1)
 
         mono = tkfont.nametofont("TkFixedFont").copy()
-        mono.configure(size=12)
+        mono.configure(size=13)
         small_mono = tkfont.nametofont("TkFixedFont").copy()
         small_mono.configure(size=11)
 
         self.game_frame = tk.Frame(self.root, bg="#111317")
         self.game_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
-        self.game_frame.grid_columnconfigure(0, weight=3)
-        self.game_frame.grid_columnconfigure(1, weight=2)
+        self.game_frame.grid_columnconfigure(0, weight=1, uniform="gameplay")
+        self.game_frame.grid_columnconfigure(1, weight=1, uniform="gameplay")
         self.game_frame.grid_rowconfigure(0, weight=1)
 
         left = tk.Frame(self.game_frame, bg="#111317", padx=12, pady=12)
@@ -322,10 +323,9 @@ class AsterfallDesktopApp:
         left.grid_columnconfigure(0, weight=1)
 
         right = tk.Frame(self.game_frame, bg="#111317", padx=12, pady=12)
-        right.grid(row=0, column=1, sticky="nsew", padx=(0, 12))
+        right.grid(row=0, column=1, sticky="nsew")
         right.grid_rowconfigure(0, weight=3)
-        right.grid_rowconfigure(1, weight=2)
-        right.grid_rowconfigure(2, weight=1)
+        right.grid_rowconfigure(1, weight=3)
         right.grid_columnconfigure(0, weight=1)
 
         self.transcript = scrolledtext.ScrolledText(
@@ -363,8 +363,16 @@ class AsterfallDesktopApp:
         self.entry.bind("<Down>", self.on_history_down)
 
         self.visual_frame, self.visual_label = self._make_visual_panel(right, "Visual Plate", row=0, font=small_mono)
-        self.map_panel = self._make_panel(right, "Observatory Map", row=1, font=small_mono)
-        self.inventory_panel = self._make_panel(right, "Inventory", row=2, font=small_mono)
+        lower = tk.Frame(right, bg="#111317")
+        lower.grid(row=1, column=0, sticky="nsew")
+        lower.grid_rowconfigure(0, weight=1)
+        map_weight = max(1, int(MAP_WIDTH_RATIO * 100))
+        inventory_weight = max(1, int((1.0 - MAP_WIDTH_RATIO) * 100))
+        lower.grid_columnconfigure(0, weight=map_weight, uniform="lower")
+        lower.grid_columnconfigure(1, weight=inventory_weight, uniform="lower")
+
+        self.map_panel = self._make_panel(lower, "Observatory Map", row=0, column=0, font=small_mono, height=8, padx=(0, 10))
+        self.inventory_panel = self._make_panel(lower, "Inventory", row=0, column=1, font=small_mono, height=8)
 
     def start_game(self, _event=None):
         self.root.unbind("<Return>")
@@ -377,9 +385,19 @@ class AsterfallDesktopApp:
         self.entry.focus_set()
         return "break"
 
-    def _make_panel(self, parent: tk.Frame, title: str, row: int, *, font) -> tk.Text:
+    def _make_panel(
+        self,
+        parent: tk.Frame,
+        title: str,
+        row: int,
+        *,
+        column: int = 0,
+        font,
+        height: int = 8,
+        padx: tuple[int, int] | int = 0,
+    ) -> tk.Text:
         frame = tk.Frame(parent, bg="#1a1f26", bd=1, relief="flat")
-        frame.grid(row=row, column=0, sticky="nsew", pady=(0, 10 if row < 2 else 0))
+        frame.grid(row=row, column=column, sticky="nsew", pady=(0, 10 if row < 2 else 0), padx=padx)
         frame.grid_rowconfigure(1, weight=1)
         frame.grid_columnconfigure(0, weight=1)
 
@@ -388,7 +406,7 @@ class AsterfallDesktopApp:
 
         text = tk.Text(
             frame,
-            wrap="none",
+            wrap="word" if title == "Inventory" else "none",
             font=font,
             bg="#141920",
             fg="#dcd5c4",
@@ -396,7 +414,7 @@ class AsterfallDesktopApp:
             relief="flat",
             padx=10,
             pady=10,
-            height=8,
+            height=height,
         )
         text.grid(row=1, column=0, sticky="nsew")
         text.configure(state="disabled")
@@ -470,8 +488,8 @@ class AsterfallDesktopApp:
             return
         try:
             image = tk.PhotoImage(file=str(path))
-            max_width = max(360, self.visual_frame.winfo_width() - 8)
-            max_height = max(260, self.visual_frame.winfo_height() - 34)
+            max_width = max(360*1.4, self.visual_frame.winfo_width() - 8)
+            max_height = max(260*1.4, self.visual_frame.winfo_height() - 34)
             factor = subsample_factor(image.width(), image.height(), max_width, max_height)
             if factor > 1:
                 image = image.subsample(factor, factor)

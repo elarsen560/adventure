@@ -52,13 +52,13 @@ MAP_EDGES = [
 ]
 
 CELL_WIDTH = 6
-CELL_HEIGHT = 2
+VERTICAL_STEP = 3
 
 
 def render_map(state: GameState, *, reveal_all: bool = False, debug_label: bool = False) -> str:
     visible_rooms = set(MAP_NODES) if reveal_all else visible_map_rooms(state)
     width = (max(node.x for node in MAP_NODES.values()) + 1) * CELL_WIDTH + 1
-    height = (max(node.y for node in MAP_NODES.values()) + 1) * CELL_HEIGHT + 1
+    height = display_row(max(node.y for node in MAP_NODES.values())) + 1
     canvas = [[" " for _ in range(width)] for _ in range(height)]
 
     for room_a, room_b, direction in MAP_EDGES:
@@ -75,7 +75,7 @@ def render_map(state: GameState, *, reveal_all: bool = False, debug_label: bool 
     while lines and not lines[-1].strip():
         lines.pop()
     header = "DEBUG FULL MAP\n" if debug_label else ""
-    return header + "\n".join(lines) + "\n\nLegend: @ current, O visited, ? adjacent unexplored, x blocked"
+    return header + "\n".join(lines) + "\n\n@ current, O visited,? unexplored, x blocked"
 
 
 def visible_map_rooms(state: GameState) -> set[str]:
@@ -99,7 +99,7 @@ def neighbors(room_id: str) -> set[str]:
 
 def draw_room(canvas: list[list[str]], room_id: str, state: GameState) -> None:
     node = MAP_NODES[room_id]
-    row = node.y * CELL_HEIGHT
+    row = display_row(node.y)
     col = node.x * CELL_WIDTH
     marker = "@ " if room_id == state.current_room else "O " if room_id in state.discovered_rooms else "? "
     token = f"[{marker}{node.label}]"
@@ -113,7 +113,7 @@ def draw_connection(canvas: list[list[str]], room_a: str, room_b: str, direction
     blocked = edge_blocked(room_a, room_b, state)
 
     if direction in {"east", "west"}:
-        row = node_a.y * CELL_HEIGHT
+        row = display_row(node_a.y)
         left = min(node_a.x, node_b.x) * CELL_WIDTH + 4
         right = max(node_a.x, node_b.x) * CELL_WIDTH
         for col in range(left, right):
@@ -121,10 +121,14 @@ def draw_connection(canvas: list[list[str]], room_a: str, room_b: str, direction
         return
 
     col = node_a.x * CELL_WIDTH + 2
-    top = min(node_a.y, node_b.y) * CELL_HEIGHT + 1
-    bottom = max(node_a.y, node_b.y) * CELL_HEIGHT
+    top = display_row(min(node_a.y, node_b.y)) + 1
+    bottom = display_row(max(node_a.y, node_b.y))
     for row in range(top, bottom):
         canvas[row][col] = "x" if blocked else "|"
+
+
+def display_row(y_value: int) -> int:
+    return (y_value // 2) * VERTICAL_STEP
 
 
 def edge_blocked(room_a: str, room_b: str, state: GameState) -> bool:

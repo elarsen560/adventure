@@ -1,11 +1,15 @@
 from types import SimpleNamespace
 
 from game.audio import AudioConfig
+from game.parser import parse_command
 from game.tk_app import (
     DesktopAudioManager,
     DesktopGameSession,
     POST_WIN_PROMPT,
+    DesktopVisualTarget,
     centered_geometry,
+    npc_image_path,
+    object_image_path,
     room_image_path,
     startup_cover_path,
     subsample_factor,
@@ -43,6 +47,18 @@ def test_room_image_path_uses_expected_repo_location():
     path = room_image_path("cliff_path")
     assert path is not None
     assert str(path).endswith("assets/images/rooms/cliff_path.png")
+
+
+def test_npc_image_path_uses_expected_repo_location():
+    path = npc_image_path("wren")
+    assert path is not None
+    assert str(path).endswith("assets/images/npc/wren.png")
+
+
+def test_object_image_path_uses_expected_repo_location():
+    path = object_image_path("archive door")
+    assert path is not None
+    assert str(path).endswith("assets/images/objects/archive_door.png")
 
 
 def test_subsample_factor_scales_down_only_when_needed():
@@ -97,4 +113,129 @@ def test_desktop_session_updates_inventory_text_from_state():
     session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
     session.game.state.inventory.append("groundskeeper_key")
     assert "groundskeeper key" in session.inventory_text()
+    session.shutdown()
+
+
+def test_desktop_session_examine_wren_sets_npc_visual_focus():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "conservatory"
+    result = session.handle_command("examine wren")
+    assert result.lines[0] == "> examine wren"
+    assert session.visual_target.kind == "npc"
+    assert session.visual_target.target_id == "wren"
+    session.shutdown()
+
+
+def test_desktop_session_talk_alias_resolves_featured_npc_visual_focus():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.featured_npc_id = "miss_fenn"
+    session.game.state.featured_npc_room = "library"
+    session.game.state.current_room = "library"
+    npc_id = session.resolve_visual_npc(parse_command("talk astronomer hello there"))
+    assert npc_id == "miss_fenn"
+    session.shutdown()
+
+
+def test_desktop_session_non_npc_command_clears_visual_focus_back_to_room():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.visual_target = DesktopVisualTarget(kind="npc", target_id="wren")
+    look = session.handle_command("look")
+    assert look.lines[0] == "> look"
+    assert session.visual_target.kind == "room"
+    assert session.visual_target.target_id is None
+    session.shutdown()
+
+
+def test_desktop_session_examine_feature_sets_object_visual_focus():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "front_gate"
+    result = session.handle_command("examine gate")
+    assert result.lines[0] == "> examine gate"
+    assert session.visual_target.kind == "object"
+    assert session.visual_target.target_id == "gate"
+    session.shutdown()
+
+
+def test_desktop_session_take_item_sets_object_visual_focus():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "workshop"
+    result = session.handle_command("take fuse")
+    assert result.lines[0] == "> take fuse"
+    assert session.visual_target.kind == "object"
+    assert session.visual_target.target_id == "fuse"
+    session.shutdown()
+
+
+def test_desktop_session_unlock_gate_focuses_gate():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "front_gate"
+    result = session.handle_command("unlock gate")
+    assert result.lines[0] == "> unlock gate"
+    assert session.visual_target.kind == "object"
+    assert session.visual_target.target_id == "gate"
+    session.shutdown()
+
+
+def test_desktop_session_enter_code_focuses_archive_door():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "east_hall"
+    result = session.handle_command("enter wrong code here")
+    assert result.lines[0] == "> enter wrong code here"
+    assert session.visual_target.kind == "object"
+    assert session.visual_target.target_id == "archive door"
+    session.shutdown()
+
+
+def test_desktop_session_use_tool_on_stationary_target_prioritizes_target():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "generator_room"
+    session.game.state.inventory.append("fuse")
+    result = session.handle_command("use fuse on panel")
+    assert result.lines[0] == "> use fuse on panel"
+    assert session.visual_target.kind == "object"
+    assert session.visual_target.target_id == "panel"
+    session.shutdown()
+
+
+def test_desktop_session_use_winding_key_on_wren_prioritizes_npc():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "conservatory"
+    session.game.state.inventory.append("winding_key")
+    result = session.handle_command("use winding key on wren")
+    assert result.lines[0] == "> use winding key on wren"
+    assert session.visual_target.kind == "npc"
+    assert session.visual_target.target_id == "wren"
+    session.shutdown()
+
+
+def test_desktop_session_set_levers_focuses_levers():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "orrery_dome"
+    result = session.handle_command("set levers 1 2 3")
+    assert result.lines[0] == "> set levers 1 2 3"
+    assert session.visual_target.kind == "object"
+    assert session.visual_target.target_id == "levers"
+    session.shutdown()
+
+
+def test_desktop_session_room_change_overrides_temporary_object_focus():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.game.state.current_room = "west_hall"
+    session.game.state.flags["secret_door_open"] = True
+    result = session.handle_command("open painting")
+    assert result.lines[0] == "> open painting"
+    assert session.game.state.current_room == "keepers_quarters"
+    assert session.visual_target.kind == "room"
+    assert session.visual_target.target_id is None
     session.shutdown()

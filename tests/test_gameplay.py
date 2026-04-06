@@ -184,7 +184,7 @@ def test_instructions_explain_key_features_without_spoilers():
     text = game.process("instructions")
     assert "Explore by looking closely" in text
     assert "map" in text
-    assert "Ask is a constrained companion" in text
+    assert "Ask lets you pause and take stock" in text
 
 
 def test_note_aliases_work():

@@ -17,6 +17,7 @@ from game.state import current_room_items, find_item_id, find_npc_id, visible_np
 
 POST_WIN_PROMPT = "Enter 'quit' to exit the observatory or 'restart' to begin a new run."
 STARTUP_COVER = Path("assets/images/startup/cover_v1.png")
+ASK_VISUAL = Path("assets/images/ui/ask_visual.png")
 ROOM_IMAGE_DIR = Path("assets/images/rooms")
 NPC_IMAGE_DIR = Path("assets/images/npc")
 OBJECT_IMAGE_DIR = Path("assets/images/objects")
@@ -35,6 +36,10 @@ def centered_geometry(screen_width: int, screen_height: int, width: int, height:
 
 def startup_cover_path() -> Path | None:
     return STARTUP_COVER if STARTUP_COVER.exists() else None
+
+
+def ask_visual_path() -> Path | None:
+    return ASK_VISUAL if ASK_VISUAL.exists() else None
 
 
 def room_image_path(room_id: str) -> Path | None:
@@ -215,6 +220,9 @@ class DesktopGameSession:
         special = self.resolve_special_visual_target(raw_text)
         if special is not None:
             return special
+
+        if command.action == "ask":
+            return DesktopVisualTarget(kind="ask")
 
         npc_id = self.resolve_visual_npc(command)
         if npc_id:
@@ -641,6 +649,8 @@ class AsterfallDesktopApp:
     def visual_target_path(self) -> Path | None:
         assert self.session.game is not None
         target = self.session.visual_target
+        if target.kind == "ask":
+            return ask_visual_path() or room_image_path(self.session.game.state.current_room)
         if target.kind == "npc" and target.target_id:
             return npc_image_path(target.target_id) or room_image_path(self.session.game.state.current_room)
         if target.kind == "object" and target.target_id:

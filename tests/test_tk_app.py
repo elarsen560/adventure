@@ -1,8 +1,10 @@
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from game.audio import AudioConfig
 from game.parser import parse_command
 from game.tk_app import (
+    ask_visual_path,
     DesktopAudioManager,
     DesktopGameSession,
     POST_WIN_PROMPT,
@@ -41,6 +43,12 @@ def test_startup_cover_path_uses_expected_repo_location():
     path = startup_cover_path()
     assert path is not None
     assert str(path).endswith("assets/images/startup/cover_v1.png")
+
+
+def test_ask_visual_path_uses_expected_repo_location():
+    path = ask_visual_path()
+    assert path is not None
+    assert str(path).endswith("assets/images/ui/ask_visual.png")
 
 
 def test_room_image_path_uses_expected_repo_location():
@@ -236,6 +244,39 @@ def test_desktop_session_room_change_overrides_temporary_object_focus():
     result = session.handle_command("open painting")
     assert result.lines[0] == "> open painting"
     assert session.game.state.current_room == "keepers_quarters"
+    assert session.visual_target.kind == "room"
+    assert session.visual_target.target_id is None
+    session.shutdown()
+
+
+def test_desktop_session_ask_sets_ask_visual_focus():
+    with patch("game.engine.companion_available", return_value=False):
+        session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+        session.begin_gameplay()
+        result = session.handle_command("ask")
+        assert result.lines[0] == "> ask"
+        assert session.visual_target.kind == "ask"
+        assert session.visual_target.target_id is None
+        session.shutdown()
+
+
+def test_desktop_session_repeated_ask_keeps_ask_visual_focus():
+    with patch("game.engine.companion_available", return_value=False):
+        session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+        session.begin_gameplay()
+        session.handle_command("ask")
+        second = session.handle_command("ask What remains unresolved?")
+        assert second.lines[0] == "> ask What remains unresolved?"
+        assert session.visual_target.kind == "ask"
+        session.shutdown()
+
+
+def test_desktop_session_non_ask_command_clears_ask_visual_focus():
+    session = DesktopGameSession(make_args(seed=4517), audio_manager=make_audio())
+    session.begin_gameplay()
+    session.visual_target = DesktopVisualTarget(kind="ask")
+    look = session.handle_command("look")
+    assert look.lines[0] == "> look"
     assert session.visual_target.kind == "room"
     assert session.visual_target.target_id is None
     session.shutdown()

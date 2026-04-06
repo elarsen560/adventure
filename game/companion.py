@@ -10,7 +10,7 @@ import urllib.request
 from pathlib import Path
 
 
-FALLBACK_MESSAGE = "Your companion can't be reached right now."
+FALLBACK_MESSAGE = "Your thoughts refuse to settle into any clearer shape just now."
 DEFAULT_MODEL = "gpt-5"
 MAX_HISTORY = 10
 
@@ -73,9 +73,9 @@ def build_companion_context(
     notes_text = "\n".join(notes_lines) if notes_lines else "None."
 
     return (
-        "Premise: You are a constrained companion to a player exploring Asterfall Observatory, a storm-dark coastal signal station.\n"
-        "Role: Speak like a restrained companion in a classic parser adventure: practical, slightly in-world, and never omniscient.\n"
-        "Knowledge rule: Help the player interpret only what is already visible or recorded. Do not invent or assume hidden game state.\n"
+        "Premise: A player is exploring Asterfall Observatory, a storm-dark coastal signal station.\n"
+        "Role: You are the player's own reflective reasoning taking clearer shape under pressure, in the tone of a restrained classic parser adventure.\n"
+        "Knowledge rule: Only interpret what is already visible, recorded, or recently said in the supplied context. Do not invent or assume hidden game state.\n"
         "Available commands: look, examine <thing>, go <direction>, take <item>, drop <item>, use <item>, use <item> on <target>, open <thing>, unlock <thing>, enter <code>, ask <question>, note <text>, notes, inventory, map, talk <character>, help, save, load, quit.\n"
         f"Current room: {room_name}\n"
         "Visible room description:\n"
@@ -96,13 +96,13 @@ def build_companion_prompt(context: str, question: str | None) -> str:
     player_request = question or "Briefly identify the most evidenced unresolved thread in the current context."
     return (
         "You only know what appears in the supplied context. Do not assume or invent hidden game state.\n"
-        "Sound like a companion from a 1980s-style parser adventure: restrained, atmospheric, practical, and slightly human or uncanny.\n"
-        "Do not sound like an analyst, expert observer, or modern assistant.\n"
+        "Sound like the player's own thoughts settling into clearer order in a 1980s-style parser adventure: restrained, atmospheric, practical, and fully grounded.\n"
+        "Do not sound like a separate companion, analyst, expert observer, modern assistant, or mystical presence.\n"
         "Do not invent rooms, items, commands, or puzzle facts.\n"
         "Keep your answer to one sentence, at most two.\n"
-        "Act like a second mind helping the player organize what is already known, not a hint system or oracle.\n"
+        "Act like reflective self-clarification under pressure, not a hint system or oracle.\n"
         "Prefer synthesis over hinting: summarize, connect, or clarify known facts before suggesting anything.\n"
-        "Frame your reply as an in-world reading of the present situation, not guidance from outside it.\n"
+        "Frame your reply as the player's own in-world reading of the present situation, not guidance from outside it.\n"
         "Offer perspective rather than solutioning.\n"
         "First synthesize what is already accomplished from the context.\n"
         "Then identify what remains incomplete.\n"

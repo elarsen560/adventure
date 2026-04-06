@@ -184,7 +184,7 @@ Explore by looking closely, examining specific things, and moving room to room. 
 
 Use map to review explored ground without spoiling the full observatory, and note / notes to keep your own records. Talk to visible characters directly with talk <character> [message].
 
-Ask is a constrained companion, not an oracle. It only reflects what you have already seen, carried, noted, or heard, and it will not reveal hidden facts or solve the game for you.
+Ask lets you pause and take stock. It only reflects what you have already seen, carried, noted, or heard, and it will not reveal hidden facts or solve the game for you.
 
 Save and load are always available. Help shows the compact command list."""
 

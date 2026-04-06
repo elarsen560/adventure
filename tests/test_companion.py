@@ -28,15 +28,15 @@ def test_prompt_includes_constraint_language():
     prompt = build_companion_prompt("Context block", "What should I try?")
     assert "Do not assume or invent hidden game state" in prompt
     assert "Keep your answer to one sentence, at most two." in prompt
-    assert "Do not sound like an analyst, expert observer, or modern assistant." in prompt
-    assert "Act like a second mind helping the player organize what is already known" in prompt
+    assert "Do not sound like a separate companion, analyst, expert observer, modern assistant, or mystical presence." in prompt
+    assert "Act like reflective self-clarification under pressure" in prompt
     assert "Your reply should primarily do one thing: recap, connect, surface tension, or focus attention." in prompt
     assert "Do not talk about commands, parser syntax, accepted words, game logic, or author intent." in prompt
     assert "For map-based questions, stay grounded in the visible layout" in prompt
     assert "What should I try?" in prompt
 
 
-def test_context_describes_companion_voice():
+def test_context_describes_reflective_voice():
     context = build_companion_context(
         room_name="Cliff Path",
         room_text="Cliff Path\nStorm and stone.",
@@ -46,8 +46,8 @@ def test_context_describes_companion_voice():
         recent_history=[],
         npc_history=[],
     )
-    assert "restrained companion in a classic parser adventure" in context
-    assert "never omniscient" in context
+    assert "player's own reflective reasoning taking clearer shape under pressure" in context
+    assert "Do not invent or assume hidden game state." in context
 
 
 def test_extract_response_text_prefers_output_text():

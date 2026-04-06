@@ -16,7 +16,7 @@ The project is organized as a small, expandable Python game rather than a single
 - `game/audio.py`: optional mixer-backed audio manager and room/state audio routing
 - `game/audio_assets.py`: generated placeholder music, ambient, and sound-effect asset creation
 - `game/ambient.py`: deterministic atmospheric ambient-text selection
-- `game/companion.py`: optional constrained companion integration via Codex CLI or OpenAI API
+- `game/companion.py`: optional reflective `ask` integration via Codex CLI or OpenAI API
 - `game/hazards.py`: seeded environmental hazard selection and resolution rules
 - `game/map.py`: authored ASCII map rendering for explored areas
 - `game/models.py`: lightweight shared data models
@@ -48,9 +48,9 @@ python3 -m pip install pygame
 
 Clone the repo, change into the project directory, and run the game with Python 3.
 
-The optional companion prefers a local authenticated `codex exec` session if the Codex CLI is installed and logged in. If Codex CLI is unavailable, it can fall back to the OpenAI API when `OPENAI_API_KEY` is set.
+The optional `ask` system prefers a local authenticated `codex exec` session if the Codex CLI is installed and logged in. If Codex CLI is unavailable, it can fall back to the OpenAI API when `OPENAI_API_KEY` is set.
 
-You can keep environment settings in a local `.env` file. The companion currently reads `OPENAI_API_KEY` and optional `OPENAI_MODEL` from either the live environment or that file.
+You can keep environment settings in a local `.env` file. The `ask` system currently reads `OPENAI_API_KEY` and optional `OPENAI_MODEL` from either the live environment or that file.
 
 ## Run
 
@@ -162,7 +162,7 @@ You can also keep a player-authored notebook with `note <text>` or `new note <te
 
 Each run also includes exactly one featured in-world NPC selected from a curated cast. The featured NPC has a seeded room, a bounded gameplay role, and short replayable dialogue that stays grounded in engine-approved knowledge. Static characters such as Wren still use the same `talk` command.
 
-You can consult an optional constrained companion with `ask <question>` or just `ask` for a general suggestion. By default the game prefers a local authenticated `codex exec` session when available; otherwise it can use the OpenAI API if `OPENAI_API_KEY` is configured. The companion only receives currently visible game context, your inventory, your notes, the visible map, recent turn history, and a short excerpt of recent NPC exchanges; it is designed to help interpret known information rather than reveal hidden state.
+You can use `ask <question>` or just `ask` to pause and take stock of what you already know. By default the game prefers a local authenticated `codex exec` session when available; otherwise it can use the OpenAI API if `OPENAI_API_KEY` is configured. `Ask` only receives currently visible game context, your inventory, your notes, the visible map, recent turn history, and a short excerpt of recent NPC exchanges; it is designed to clarify known information rather than reveal hidden state.
 
 During normal play, the observatory may occasionally emit short atmospheric ambient lines tied to your location and the station's changing condition. These are intentionally infrequent, deterministic within a run, and do not reveal puzzle solutions.
 
